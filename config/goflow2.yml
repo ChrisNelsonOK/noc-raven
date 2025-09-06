@@ -1,0 +1,415 @@
+# 🦅 NoC Raven - GoFlow2 Configuration
+# High-performance NetFlow/sFlow/IPFIX collection and forwarding
+# Optimized for venue environments processing 50,000+ flows/second
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+logging:
+  level: info
+  format: json
+  output: /var/log/noc-raven/goflow2.log
+  rotation:
+    enabled: true
+    max_size: 100MB
+    max_backups: 14
+    max_age: 14
+    compress: true
+
+# =============================================================================
+# PERFORMANCE TUNING
+# =============================================================================
+performance:
+  # Worker configuration for high throughput
+  workers: 8
+  queue_size: 10000
+  batch_size: 1000
+  flush_interval: 1s
+  
+  # Memory and buffer settings
+  memory:
+    max_heap: 2GB
+    gc_percent: 80
+  
+  buffer:
+    size: 100MB
+    flush_timeout: 5s
+
+# =============================================================================
+# FLOW COLLECTORS CONFIGURATION
+# =============================================================================
+collectors:
+  # NetFlow v5/v9 Collector
+  netflow:
+    enabled: true
+    bind: "0.0.0.0:2055"
+    workers: 4
+    queue_size: 5000
+    
+    # NetFlow-specific settings
+    templates:
+      timeout: 30m
+      cache_size: 10000
+    
+    # Sampling configuration
+    sampling:
+      enabled: true
+      default_rate: 1000
+      
+    # Buffer for offline operation
+    buffer:
+      enabled: true
+      path: "/data/flows/netflow"
+      max_size: 50GB
+      retention: "14d"
+      
+  # IPFIX Collector  
+  ipfix:
+    enabled: true
+    bind: "0.0.0.0:4739"
+    workers: 4
+    queue_size: 5000
+    
+    # IPFIX-specific settings
+    templates:
+      timeout: 30m
+      cache_size: 10000
+      
+    # Buffer for offline operation
+    buffer:
+      enabled: true
+      path: "/data/flows/ipfix"
+      max_size: 50GB
+      retention: "14d"
+
+  # sFlow Collector
+  sflow:
+    enabled: true
+    bind: "0.0.0.0:6343"
+    workers: 2
+    queue_size: 2000
+    
+    # sFlow-specific settings
+    sampling:
+      default_rate: 1000
+      
+    # Buffer for offline operation
+    buffer:
+      enabled: true
+      path: "/data/flows/sflow"
+      max_size: 20GB
+      retention: "14d"
+
+# =============================================================================
+# FLOW PROCESSING PIPELINE
+# =============================================================================
+pipeline:
+  # Flow normalization
+  normalize:
+    enabled: true
+    
+    # Field mapping for consistent output
+    field_mapping:
+      src_ip: "SrcAddr"
+      dst_ip: "DstAddr"
+      src_port: "SrcPort"
+      dst_port: "DstPort"
+      protocol: "Proto"
+      bytes: "Bytes"
+      packets: "Packets"
+      start_time: "TimeFlowStart"
+      end_time: "TimeFlowEnd"
+      
+  # Enrichment processing
+  enrichment:
+    enabled: true
+    
+    # GeoIP enrichment
+    geoip:
+      enabled: true
+      database: "/opt/noc-raven/config/GeoLite2-City.mmdb"
+      fields: ["country", "region", "city", "asn"]
+      
+    # ASN lookup
+    asn:
+      enabled: true
+      database: "/opt/noc-raven/config/GeoLite2-ASN.mmdb"
+      
+    # Device classification
+    device_classification:
+      enabled: true
+      rules: "/opt/noc-raven/config/device-rules.yml"
+      
+  # Aggregation for reduced data volume
+  aggregation:
+    enabled: true
+    interval: 60s
+    
+    # Aggregation keys
+    keys: 
+      - "SrcAddr"
+      - "DstAddr" 
+      - "SrcPort"
+      - "DstPort"
+      - "Proto"
+      
+    # Metrics to aggregate
+    metrics:
+      - name: "total_bytes"
+        field: "Bytes"
+        operation: "sum"
+      - name: "total_packets"
+        field: "Packets"
+        operation: "sum"
+      - name: "flow_count"
+        operation: "count"
+        
+  # Filtering for noise reduction
+  filtering:
+    enabled: true
+    
+    # Rate limiting per source
+    rate_limit:
+      enabled: true
+      max_flows_per_second: 1000
+      per_source: true
+      
+    # Flow size filtering
+    flow_filters:
+      - name: "min_bytes"
+        field: "Bytes"
+        operator: "gte"
+        value: 64
+      - name: "valid_ports"
+        field: "SrcPort"
+        operator: "range"
+        value: "1-65535"
+
+# =============================================================================
+# OUTPUT CONFIGURATION
+# =============================================================================
+outputs:
+  # Primary output to remote GoFlow2 instance
+  remote_goflow:
+    enabled: true
+    type: "netflow_v9"
+    target: "obs.rectitude.net:2055"
+    
+    # Connection settings
+    connection:
+      timeout: 10s
+      retry_attempts: 5
+      retry_interval: 30s
+      keep_alive: true
+      
+    # Buffer settings for VPN outages
+    buffer:
+      enabled: true
+      path: "/data/flows/output-buffer"
+      max_size: 20GB
+      flush_interval: 5s
+      
+    # Export template refresh
+    template_refresh: 600s
+    
+  # InfluxDB export for metrics
+  influxdb:
+    enabled: true
+    url: "http://obs.rectitude.net:8086"
+    database: "r369"
+    username: "admin"
+    password: "${INFLUXDB_PASSWORD}"
+    
+    # Measurement configuration
+    measurement: "netflow"
+    
+    # Tags and fields
+    tags: 
+      - "collector_id"
+      - "site_id"
+      - "device_type"
+      - "src_asn"
+      - "dst_asn"
+    
+    # Batch settings
+    batch:
+      size: 1000
+      timeout: 10s
+      
+    # Retry configuration
+    retry:
+      attempts: 3
+      interval: 30s
+      
+  # Local storage for debugging
+  local_storage:
+    enabled: true
+    type: "file"
+    path: "/data/flows/debug"
+    
+    # File rotation
+    rotation:
+      enabled: true
+      max_size: 1GB
+      max_files: 14
+      compress: true
+      
+    # Export format
+    format: "json"
+    
+  # Kafka output (optional for real-time streaming)
+  kafka:
+    enabled: false
+    brokers: 
+      - "obs.rectitude.net:9092"
+    topic: "netflow"
+    
+    # Producer settings
+    producer:
+      batch_size: 1000
+      batch_timeout: 10s
+      compression: "snappy"
+      
+    # Partitioning
+    partitioner: "hash"
+    partition_key: "src_ip"
+
+# =============================================================================
+# MONITORING AND HEALTH CHECKS
+# =============================================================================
+monitoring:
+  # Metrics endpoint
+  metrics:
+    enabled: true
+    bind: "0.0.0.0:8080"
+    path: "/metrics"
+    
+  # Health check endpoint  
+  health:
+    enabled: true
+    bind: "0.0.0.0:8081"
+    path: "/health"
+    
+  # Statistics collection
+  stats:
+    enabled: true
+    interval: 30s
+    
+    # Statistics to collect
+    collectors:
+      - "flows_received"
+      - "flows_processed" 
+      - "flows_exported"
+      - "bytes_received"
+      - "packets_received"
+      - "templates_received"
+      - "errors_count"
+      - "buffer_size"
+      - "queue_depth"
+
+# =============================================================================
+# SECURITY CONFIGURATION
+# =============================================================================
+security:
+  # Rate limiting
+  rate_limit:
+    enabled: true
+    global_limit: 100000  # flows per second
+    per_source_limit: 10000  # flows per second per source
+    
+  # Source IP filtering
+  source_filtering:
+    enabled: true
+    # Allow list for known devices (empty = allow all)
+    allow_list: []
+    
+    # Block list for problematic sources
+    block_list: []
+    
+  # Flow validation
+  validation:
+    enabled: true
+    
+    # Validate flow fields
+    validate_fields: true
+    
+    # Check for malformed packets
+    check_malformed: true
+    
+    # Maximum flow size
+    max_flow_size: 1MB
+
+# =============================================================================
+# ADVANCED FEATURES
+# =============================================================================
+features:
+  # Flow deduplication
+  deduplication:
+    enabled: true
+    window: 30s
+    cache_size: 100000
+    
+  # Flow correlation
+  correlation:
+    enabled: true
+    
+    # Bidirectional flow correlation
+    bidirectional: true
+    correlation_timeout: 60s
+    
+  # Anomaly detection
+  anomaly_detection:
+    enabled: false  # Can be enabled for advanced monitoring
+    
+    # Detection algorithms
+    algorithms:
+      - "volume_spike"
+      - "new_destination"
+      - "protocol_anomaly"
+      
+    # Thresholds
+    thresholds:
+      volume_spike: 5.0  # Standard deviations
+      new_destination_rate: 100  # New destinations per hour
+      
+  # Export optimization
+  export_optimization:
+    enabled: true
+    
+    # Template caching
+    template_cache_size: 10000
+    template_cache_ttl: 30m
+    
+    # Compression
+    compression: "gzip"
+    compression_level: 6
+
+# =============================================================================
+# ENVIRONMENT-SPECIFIC OVERRIDES
+# =============================================================================
+env_overrides:
+  # Stadium configuration
+  stadium:
+    performance:
+      workers: 16
+      queue_size: 20000
+      batch_size: 2000
+    collectors:
+      netflow:
+        workers: 8
+      sflow:
+        workers: 4
+        
+  # Convention center configuration  
+  convention_center:
+    performance:
+      workers: 12
+      queue_size: 15000
+      batch_size: 1500
+      
+  # Arena configuration
+  arena:
+    performance:
+      workers: 10
+      queue_size: 12000
+      batch_size: 1200

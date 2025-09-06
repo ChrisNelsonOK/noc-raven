@@ -1,0 +1,9 @@
+{
+  "services": [
+    {"name": "nginx", "status": "running", "port": 80, "description": "Web server"},
+    {"name": "goflow2", "status": "running", "port": 2055, "description": "NetFlow collector"},
+    {"name": "fluent-bit", "status": "running", "port": 24224, "description": "Log processor"},
+    {"name": "telegraf", "status": "running", "port": 8125, "description": "Metrics collector"},
+    {"name": "vector", "status": "running", "port": 8084, "description": "Data pipeline"}
+  ]
+}

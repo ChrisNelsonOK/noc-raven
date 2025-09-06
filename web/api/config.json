@@ -1,0 +1,90 @@
+{
+  "collection": {
+    "syslog": {
+      "enabled": true,
+      "port": 1514,
+      "protocol": "UDP",
+      "bindAddress": "0.0.0.0"
+    },
+    "netflow": {
+      "enabled": true,
+      "port": 2055,
+      "protocol": "UDP",
+      "bindAddress": "0.0.0.0",
+      "ports": {
+        "netflow_v5": 2056,
+        "ipfix": 4740,
+        "sflow": 6344
+      }
+    },
+    "snmp": {
+      "enabled": true,
+      "port": 161,
+      "protocol": "UDP",
+      "bindAddress": "0.0.0.0",
+      "pollInterval": 300,
+      "trap_port": 1162
+    },
+    "telegraf": {
+      "enabled": true,
+      "port": 8125,
+      "protocol": "UDP",
+      "bindAddress": "0.0.0.0"
+    }
+  },
+  "forwarding": {
+    "syslog": {
+      "enabled": false,
+      "targetHost": "",
+      "targetPort": 514,
+      "protocol": "UDP",
+      "format": "RFC3164"
+    },
+    "netflow": {
+      "enabled": false,
+      "targetHost": "",
+      "targetPort": 2055,
+      "protocol": "UDP",
+      "version": "v9"
+    },
+    "snmp": {
+      "enabled": false,
+      "targetHost": "",
+      "targetPort": 162,
+      "protocol": "UDP",
+      "community": "public"
+    },
+    "metrics": {
+      "enabled": false,
+      "targetHost": "",
+      "targetPort": 9090,
+      "protocol": "HTTP",
+      "endpoint": "/api/v1/write"
+    }
+  },
+  "alerts": {
+    "cpuThreshold": 85,
+    "memoryThreshold": 90,
+    "diskThreshold": 80,
+    "networkThreshold": 95,
+    "emailEnabled": false,
+    "emailServer": "",
+    "emailPort": 587,
+    "emailUsername": "",
+    "emailPassword": "",
+    "emailRecipients": ""
+  },
+  "retention": {
+    "netflowDays": 30,
+    "syslogDays": 90,
+    "metricsDays": 365,
+    "snmpDays": 180
+  },
+  "performance": {
+    "maxConcurrentFlows": 10000,
+    "bufferSize": "64MB",
+    "compressionEnabled": true,
+    "indexingEnabled": true
+  },
+  "timestamp": "2025-09-05T16:01:25.622595+00:00"
+}

@@ -1,0 +1,47 @@
+# NoC Raven – Git ignore rules (v.90-beta)
+
+# OS / IDE noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node / web build artifacts
+node_modules/
+web/node_modules/
+web/build/
+web/dist/
+dist/
+build/
+
+# Python virtualenvs
+.venv/
+venv/
+
+# Logs and test results
+*.log
+nohup.out
+/backups/
+/backups/**
+/test-results-*.txt
+
+# Env/config secrets
+.env
+*.env
+.env.*
+.env.local
+.envrc
+
+# Docker outputs
+*.tar
+*.tar.gz
+*.gz
+*.zip
+
+# Coverage / tmp
+coverage/
+.coverage*
+/tmp/
+

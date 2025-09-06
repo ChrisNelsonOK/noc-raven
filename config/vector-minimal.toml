@@ -1,0 +1,49 @@
+# 🦅 NoC Raven - Minimal Vector Configuration
+# Ultra-stable configuration for production deployment
+
+data_dir = "/data/vector"
+
+[api]
+enabled = true
+address = "0.0.0.0:8084"
+playground = false
+
+# Vector logging level is managed via VECTOR_LOG env; no [log] table for compatibility
+
+# =============================================================================
+# SOURCES
+# =============================================================================
+
+# File input for log files
+[sources.log_files]
+type = "file"
+include = ["/var/log/noc-raven/*.log"]
+ignore_older_secs = 600
+
+# =============================================================================
+# SINKS
+# =============================================================================
+
+# File output (hourly files) with upstream filtering to only WARN/ERROR/FATAL
+[sinks.logs_file]
+type = "file"
+inputs = ["important_logs"]
+path = "/data/logs/vector-logs-%Y-%m-%dT%H.log"
+
+[sinks.logs_file.encoding]
+codec = "json"
+
+# Transform to filter only important logs
+[transforms.important_logs]
+type = "filter"
+inputs = ["log_files"]
+condition = 'exists(.level) && (.level == "ERROR" || .level == "WARN" || .level == "FATAL")'
+
+# Limited console output for debugging (only errors/warnings) - DISABLED
+# [sinks.console_debug]
+# type = "console"
+# inputs = ["important_logs"]
+# target = "stdout"
+# 
+# [sinks.console_debug.encoding]
+# codec = "json"

@@ -1,0 +1,558 @@
+# 🦅 NoC Raven - Production Telemetry Collection & Forwarding Appliance
+# Complete production deployment with full backend API integration
+# Built for true production environments with comprehensive monitoring and control
+
+ARG ALPINE_VERSION=3.19
+ARG GOLANG_VERSION=1.23-alpine3.19
+ARG PYTHON_VERSION=3.11-alpine3.19
+
+# =============================================================================
+# Build Stage: GoFlow2 Collector
+# =============================================================================
+FROM golang:${GOLANG_VERSION} AS goflow-builder
+WORKDIR /build
+
+# Install build dependencies
+RUN apk add --no-cache git make gcc musl-dev
+
+# Clone and build GoFlow2
+RUN git clone https://github.com/netsampler/goflow2.git . && \
+    go mod download && \
+    go build -ldflags="-s -w" -o goflow2 ./cmd/goflow2
+
+# =============================================================================
+# Build Stage: Web Control Panel
+# =============================================================================
+FROM node:18-alpine AS web-builder
+WORKDIR /build
+
+# Copy web application source
+COPY web/package*.json ./
+RUN npm install
+
+COPY web/ .
+RUN npm run build
+
+# =============================================================================
+# Build Stage: Terminal Menu Interface
+# =============================================================================
+FROM alpine:${ALPINE_VERSION} AS menu-builder
+WORKDIR /build
+
+# Install development tools for menu interface
+RUN apk add --no-cache gcc musl-dev ncurses-dev make
+
+# Copy terminal menu source and build
+COPY scripts/terminal-menu/ .
+RUN make clean && make
+
+# =============================================================================
+# Build Stage: Python Dependencies
+# =============================================================================
+FROM python:${PYTHON_VERSION} AS python-builder
+WORKDIR /build
+
+# Install system dependencies for Python packages
+RUN apk add --no-cache \
+    gcc \
+    musl-dev \
+    linux-headers \
+    libffi-dev \
+    openssl-dev \
+    cargo \
+    rust
+
+# Create requirements file for backend API
+RUN cat > requirements.txt << EOF
+flask==2.3.3
+flask-cors==4.0.0
+flask-limiter==3.5.0
+psutil==5.9.5
+SQLAlchemy==2.0.21
+werkzeug==2.3.7
+jinja2==3.1.2
+itsdangerous==2.1.2
+click==8.1.7
+markupsafe==2.1.3
+blinker==1.6.3
+limits==3.6.0
+packaging==23.1
+redis==5.0.0
+typing-extensions==4.8.0
+cryptography==41.0.4
+pycparser==2.21
+cffi==1.15.1
+six==1.16.0
+EOF
+
+# Install Python dependencies in virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install --no-cache-dir -r requirements.txt
+
+# =============================================================================
+# Production Stage: Complete NoC Raven Appliance
+# =============================================================================
+FROM alpine:${ALPINE_VERSION}
+
+# Metadata
+LABEL maintainer="support@rectitude369.com"
+LABEL version="2.0.0-production"
+LABEL description="NoC Raven - Production telemetry collection and forwarding appliance with full API backend"
+LABEL org.label-schema.name="noc-raven"
+LABEL org.label-schema.description="Turn-key telemetry collector for venue environments with real-time API"
+LABEL org.label-schema.version="2.0.0"
+LABEL org.label-schema.vendor="Rectitude 369, LLC"
+
+# Environment variables
+ENV LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8 \
+    TZ=UTC \
+    PYTHONPATH=/opt/venv/lib/python3.11/site-packages \
+    PATH="/opt/venv/bin:$PATH" \
+    PERFORMANCE_PROFILE=production \
+    BUFFER_SIZE=100GB \
+    WEB_PORT=9080 \
+    API_PORT=5000 \
+    NOC_RAVEN_HOME=/opt/noc-raven \
+    DATA_PATH=/data \
+    CONFIG_PATH=/config
+
+# Create system user and directories
+RUN addgroup -g 1000 nocraven && \
+    adduser -u 1000 -G nocraven -D -h ${NOC_RAVEN_HOME} nocraven && \
+    mkdir -p ${NOC_RAVEN_HOME}/{bin,config,logs,web,scripts} \
+             ${NOC_RAVEN_HOME}/logs/nginx_temp/{client_body,proxy,fastcgi,uwsgi,scgi} \
+             ${DATA_PATH}/{syslog,flows,snmp,metrics,buffer,vector,logs} \
+             ${CONFIG_PATH}/{vpn,collectors,network} \
+             /var/log/noc-raven \
+             /opt/venv
+
+# Add edge and testing repositories for latest packages
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories && \
+    echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && \
+    echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
+
+# Install core system dependencies and telemetry services
+RUN apk update && apk add --no-cache \
+    # Core system
+    ca-certificates \
+    tzdata \
+    curl \
+    wget \
+    jq \
+    bash \
+    musl \
+    libc6-compat \
+    # Python runtime
+    python3 \
+    py3-pip \
+    libffi \
+    openssl \
+    # Network tools
+    iputils \
+    net-tools \
+    iproute2 \
+    tcpdump \
+    nmap \
+    netcat-openbsd \
+    socat \
+    # OpenVPN
+    openvpn \
+    # Terminal interface
+    ncurses \
+    dialog \
+    figlet \
+    # Web server
+    nginx \
+    # Monitoring
+    htop \
+    iotop \
+    # Process management
+    supervisor \
+    # Development/debugging
+    strace \
+    ngrep \
+    # Database support
+    sqlite \
+    # Compression
+    gzip \
+    bzip2 \
+    xz \
+    # Telemetry services from Alpine packages
+    fluent-bit \
+    telegraf \
+    # Redis for rate limiting
+    redis
+
+# =============================================================================
+# Install Vector from GitHub releases (as it's not in Alpine repos)
+# =============================================================================
+RUN cd /tmp && \
+    VECTOR_VERSION="0.41.1" && \
+    ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ]; then ARCH="aarch64-unknown-linux-musl"; fi && \
+    if [ "$ARCH" = "x86_64" ]; then ARCH="x86_64-unknown-linux-musl"; fi && \
+    wget -O vector.tar.gz "https://github.com/vectordotdev/vector/releases/download/v${VECTOR_VERSION}/vector-${VECTOR_VERSION}-${ARCH}.tar.gz" && \
+    tar -xzf vector.tar.gz && \
+    cp vector-*/bin/vector /usr/local/bin/vector && \
+    mkdir -p /etc/vector && \
+    cd / && rm -rf /tmp/vector*
+
+# =============================================================================
+# Copy Python virtual environment and dependencies
+# =============================================================================
+COPY --from=python-builder /opt/venv /opt/venv
+
+# =============================================================================
+# Create optimized system configuration for high-performance networking
+# =============================================================================
+RUN mkdir -p /etc/security && \
+    echo "* soft nofile 1048576" >> /etc/security/limits.conf && \
+    echo "* hard nofile 1048576" >> /etc/security/limits.conf && \
+    echo "fs.file-max = 1048576" >> /etc/sysctl.conf && \
+    echo "net.core.rmem_max = 134217728" >> /etc/sysctl.conf && \
+    echo "net.core.wmem_max = 134217728" >> /etc/sysctl.conf && \
+    echo "net.core.rmem_default = 8388608" >> /etc/sysctl.conf && \
+    echo "net.core.wmem_default = 8388608" >> /etc/sysctl.conf && \
+    echo "net.core.netdev_max_backlog = 10000" >> /etc/sysctl.conf && \
+    echo "net.ipv4.tcp_rmem = 4096 87380 134217728" >> /etc/sysctl.conf && \
+    echo "net.ipv4.tcp_wmem = 4096 65536 134217728" >> /etc/sysctl.conf
+
+# Copy built binaries and applications
+COPY --from=goflow-builder /build/goflow2 ${NOC_RAVEN_HOME}/bin/
+COPY --from=web-builder /build/dist ${NOC_RAVEN_HOME}/web/
+COPY --from=menu-builder /build/terminal-menu ${NOC_RAVEN_HOME}/bin/
+
+# Copy backend API server
+COPY scripts/api-server.py ${NOC_RAVEN_HOME}/bin/
+COPY scripts/start-api-server.sh ${NOC_RAVEN_HOME}/bin/
+
+# Copy configuration templates and scripts
+COPY config/ ${NOC_RAVEN_HOME}/config/
+COPY scripts/ ${NOC_RAVEN_HOME}/scripts/
+COPY services/ /etc/supervisor/conf.d/
+
+# Copy startup and utility scripts
+COPY scripts/entrypoint.sh ${NOC_RAVEN_HOME}/bin/
+COPY scripts/boot-manager.sh ${NOC_RAVEN_HOME}/bin/
+COPY scripts/network-tools.sh ${NOC_RAVEN_HOME}/bin/
+COPY scripts/health-check.sh ${NOC_RAVEN_HOME}/bin/
+
+# Create enhanced entrypoint script that starts both services and API server
+RUN cat > ${NOC_RAVEN_HOME}/bin/entrypoint-production.sh << 'EOF'
+#!/bin/bash
+# 🦅 NoC Raven Production Entrypoint with Full API Backend
+set -euo pipefail
+
+# Logging function
+log() {
+    echo "[$(date -Iseconds)] $*" >&2
+}
+
+# Configuration
+NOC_RAVEN_HOME=${NOC_RAVEN_HOME:-/opt/noc-raven}
+WEB_PORT=${WEB_PORT:-8080}
+API_PORT=${API_PORT:-5001}
+DATA_PATH=${DATA_PATH:-/data}
+
+log "🦅 Starting NoC Raven Production System v2.0.0"
+
+# Create required directories
+mkdir -p ${DATA_PATH}/{flows,syslog,snmp,metrics,buffer,logs}
+mkdir -p ${NOC_RAVEN_HOME}/logs
+
+# Start Redis for rate limiting (background)
+log "Starting Redis for API rate limiting..."
+redis-server --daemonize yes --port 6379 --loglevel warning
+
+# Start production service manager
+log "Starting production service manager..."
+cd ${NOC_RAVEN_HOME}
+./scripts/production-service-manager.sh &
+SERVICE_MANAGER_PID=$!
+
+# Production services will be started by the service manager
+log "Starting production service manager..."
+cd ${NOC_RAVEN_HOME}
+exec ./scripts/production-service-manager.sh
+
+# Start nginx web server
+log "Starting nginx web server on port ${WEB_PORT}..."
+nginx -g "daemon off;" &
+NGINX_PID=$!
+
+# Function to cleanup on exit
+cleanup() {
+    log "Shutting down NoC Raven Production System..."
+    kill -TERM $API_SERVER_PID $NGINX_PID $SERVICE_MANAGER_PID 2>/dev/null || true
+    redis-cli shutdown 2>/dev/null || true
+    wait
+    log "Shutdown complete"
+}
+
+# Set trap for cleanup
+trap cleanup SIGTERM SIGINT
+
+# Wait for processes
+log "NoC Raven Production System fully operational"
+log "Web Interface: http://localhost:${WEB_PORT}"
+log "API Server: http://localhost:${API_PORT}"
+log "Press Ctrl+C to stop"
+
+# Monitor processes and restart if needed
+while true; do
+    # Check if API server is still running
+    if ! kill -0 $API_SERVER_PID 2>/dev/null; then
+        log "API server died, restarting..."
+        cd ${NOC_RAVEN_HOME}
+        ./bin/start-api-server.sh &
+        API_SERVER_PID=$!
+    fi
+    
+    # Check if nginx is still running
+    if ! kill -0 $NGINX_PID 2>/dev/null; then
+        log "Nginx died, restarting..."
+        nginx -g "daemon off;" &
+        NGINX_PID=$!
+    fi
+    
+    # Check if service manager is still running
+    if ! kill -0 $SERVICE_MANAGER_PID 2>/dev/null; then
+        log "Service manager died, restarting..."
+        cd ${NOC_RAVEN_HOME}
+        ./scripts/production-service-manager.sh &
+        SERVICE_MANAGER_PID=$!
+    fi
+    
+    sleep 30
+done
+EOF
+
+
+# Create enhanced nginx configuration with API backend proxy
+RUN cat > /etc/nginx/nginx.conf << 'EOF'
+# 🦅 NoC Raven - Production Nginx Configuration
+# High-performance web server with full API backend integration
+
+user nocraven;
+worker_processes auto;
+error_log /opt/noc-raven/logs/nginx.error.log warn;
+pid /opt/noc-raven/logs/nginx.pid;
+
+events {
+    worker_connections 1024;
+    use epoll;
+    multi_accept on;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    
+    # Set temp directories to nocraven-writable locations
+    client_body_temp_path /opt/noc-raven/logs/nginx_temp/client_body;
+    proxy_temp_path /opt/noc-raven/logs/nginx_temp/proxy;
+    fastcgi_temp_path /opt/noc-raven/logs/nginx_temp/fastcgi;
+    uwsgi_temp_path /opt/noc-raven/logs/nginx_temp/uwsgi;
+    scgi_temp_path /opt/noc-raven/logs/nginx_temp/scgi;
+
+    # Logging
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                   '$status $body_bytes_sent "$http_referer" '
+                   '"$http_user_agent" "$http_x_forwarded_for"';
+    
+    access_log /opt/noc-raven/logs/nginx.access.log main;
+
+    # Performance optimizations
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+    client_max_body_size 64M;
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1000;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types
+        application/json
+        application/javascript
+        application/xml+rss
+        application/atom+xml
+        image/svg+xml
+        text/plain
+        text/css
+        text/xml
+        text/javascript;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+    # Rate limiting
+    limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+    limit_req_zone $binary_remote_addr zone=web:10m rate=50r/s;
+
+    # Backend API server
+    upstream api_backend {
+        server 127.0.0.1:5000;
+        keepalive 32;
+    }
+
+    # Main web interface server
+    server {
+        listen 9080 default_server;
+        listen [::]:9080 default_server;
+        server_name _;
+        root /opt/noc-raven/web;
+        index index.html;
+
+        # Rate limiting for web interface
+        limit_req zone=web burst=20 nodelay;
+
+        # Main web application
+        location / {
+            try_files $uri $uri/ /index.html;
+            expires 1h;
+            add_header Cache-Control "public, immutable";
+        }
+
+        # Static assets with longer caching
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            access_log off;
+        }
+
+        # API endpoints - proxy to backend server
+        location /api/ {
+            limit_req zone=api burst=10 nodelay;
+            
+            # Proxy to backend API server
+            proxy_pass http://api_backend/api/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_cache_bypass $http_upgrade;
+            
+            # Timeout settings
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+            
+            # CORS headers
+            add_header Access-Control-Allow-Origin "*" always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept, Authorization" always;
+            
+            # Handle preflight OPTIONS requests
+            if ($request_method = 'OPTIONS') {
+                return 204;
+            }
+        }
+
+        # Health check endpoint - proxy to backend
+        location /health {
+            proxy_pass http://api_backend/health;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            access_log off;
+        }
+
+        # WebSocket support for real-time updates
+        location /ws {
+            proxy_pass http://api_backend/ws;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 86400s;
+            proxy_send_timeout 86400s;
+        }
+
+        # Metrics endpoint (protected)
+        location /metrics {
+            limit_req zone=api burst=2 nodelay;
+            proxy_pass http://api_backend/metrics;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        # Deny access to sensitive files
+        location ~ /\. {
+            deny all;
+            access_log off;
+            log_not_found off;
+        }
+
+        # Custom error pages
+        error_page 404 /404.html;
+        error_page 500 502 503 504 /50x.html;
+    }
+
+    # Security: Hide server version
+    server_tokens off;
+}
+EOF
+
+# Make scripts executable
+RUN chmod +x ${NOC_RAVEN_HOME}/bin/* && \
+    chmod +x ${NOC_RAVEN_HOME}/scripts/*.py && \
+    chmod +x ${NOC_RAVEN_HOME}/scripts/*.sh
+
+# Set ownership and permissions
+RUN chown -R nocraven:nocraven ${NOC_RAVEN_HOME} ${DATA_PATH} ${CONFIG_PATH} /var/log/noc-raven && \
+    chmod -R 755 ${NOC_RAVEN_HOME}/scripts && \
+    chmod -R 755 ${NOC_RAVEN_HOME}/config && \
+    chmod -R 755 ${DATA_PATH} && \
+    chmod -R 755 ${CONFIG_PATH}
+
+# Expose ports
+# Syslog: 514/udp
+# NetFlow: 2055/udp, 4739/udp  
+# sFlow: 6343/udp
+# SNMP Traps: 162/udp
+# HTTP API: 5001/tcp
+# Vector API: 8084/tcp
+# Web Panel: 8080/tcp
+# Fluent Bit: 2020/tcp
+EXPOSE 514/udp 2055/udp 4739/udp 6343/udp 162/udp 5001/tcp 8084/tcp 8080/tcp 2020/tcp
+
+# Enhanced health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:8080/health && curl -f http://localhost:5001/health || exit 1
+
+# Volume mounts for persistence
+VOLUME ["${DATA_PATH}", "${CONFIG_PATH}", "/var/log/noc-raven"]
+
+# Working directory
+WORKDIR ${NOC_RAVEN_HOME}
+
+# Switch to non-root user
+USER nocraven
+
+# Entry point - use production entrypoint
+ENTRYPOINT ["./bin/entrypoint-production.sh"]
+
+# Build information
+ARG BUILD_DATE
+ARG VCS_REF
+LABEL org.label-schema.build-date=$BUILD_DATE \
+      org.label-schema.vcs-ref=$VCS_REF \
+      org.label-schema.schema-version="2.0"
