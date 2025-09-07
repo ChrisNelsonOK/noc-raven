@@ -71,10 +71,31 @@ NoC Raven is designed for deployment in high-volume network environments with th
 
 1. **Pull and Run the Appliance**
 ```bash
+# Linux hosts (preferred): host networking
+# - Web UI available at http://[host-ip]:8080
+# - Windows Events HTTP ingestion on 8084
+
 docker run -d \
   --name noc-raven \
   --privileged \
   --network host \
+  -v noc-raven-data:/data \
+  -v noc-raven-config:/config \
+  -v /path/to/your/vpn.ovpn:/config/vpn/client.ovpn \
+  rectitude369/noc-raven:latest
+
+# macOS/Windows (no host networking): publish ports instead
+#   -p 9080:8080  (web UI)
+#   -p 8084:8084  (Windows Events HTTP ingestion)
+#   -p 2055:2055/udp -p 4739:4739/udp -p 6343:6343/udp -p 162:162/udp (collectors)
+#   Optional (debug only): -p 5004:5004 (internal config-service; avoid in prod)
+
+docker run -d \
+  --name noc-raven \
+  -p 9080:8080 \
+  -p 8084:8084 \
+  -p 2055:2055/udp -p 4739:4739/udp -p 6343:6343/udp \
+  -p 162:162/udp \
   -v noc-raven-data:/data \
   -v noc-raven-config:/config \
   -v /path/to/your/vpn.ovpn:/config/vpn/client.ovpn \
@@ -119,7 +140,9 @@ docker run -d \
 
 ### Windows Events
 - **Input**: Syslog forwarding (preferred) or JSON HTTP
-- **Port**: HTTP/8084 (JSON endpoint)
+- **Port**: HTTP/8084 (JSON endpoint; expose on host)
+- **Config-service**: 5004/tcp (internal, proxied by Nginx at /api; do not expose in production)
+  - Optional (debug only): you may temporarily publish `-p 5004:5004` while troubleshooting and remove afterward
 - **Processing**: Vector pipeline
 
 ## 🖥️ User Interfaces
