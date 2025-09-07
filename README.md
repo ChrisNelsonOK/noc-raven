@@ -19,10 +19,14 @@ Quick start
    # If standard ports are free on your host
    docker run -d --name noc-raven \
      -p 9080:8080 \
+     -p 8084:8084 \
      -p 2055:2055/udp -p 4739:4739/udp -p 6343:6343/udp \
      -p 162:162/udp \
      -v noc-raven-data:/data -v noc-raven-config:/config \
      rectitude369/noc-raven:1.0.0 --mode=web
+
+   # Optional (debugging only): expose internal config-service directly
+   # -p 5004:5004  # not recommended for production (use /api via 8080)
 
    # If you have port conflicts, map alternative host ports (example)
    docker run -d --name noc-raven \
@@ -36,8 +40,9 @@ Quick start
    http://localhost:9080   (or the host port you mapped)
 
 Default ports (inside the container)
-- Web UI: 8080/tcp (expose on host of your choice)
-- Vector API: 8084/tcp (internal)
+- Web UI: 8080/tcp (expose on host)
+- Windows Events HTTP (Vector): 8084/tcp (expose on host for event ingestion)
+- Config-service API: 5004/tcp (internal, proxied by Nginx at /api; do not expose in production)
 - Collectors (UDP): NetFlow v5 2055, IPFIX 4739, sFlow 6343, SNMP traps 162
 
 Dynamic configuration

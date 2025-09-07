@@ -96,6 +96,12 @@ cp your-venue.ovpn ./vpn-config/client.ovpn
 
 ```bash
 # For venues with DHCP (Web Control Panel)
+# Linux hosts may prefer --network host. On macOS/Windows, publish ports instead:
+#   -p 9080:8080  (web UI)
+#   -p 8084:8084  (Windows Events HTTP ingestion)
+#   -p 2055:2055/udp -p 4739:4739/udp -p 6343:6343/udp -p 162:162/udp (collectors)
+#   Optional (debug only): -p 5004:5004 (internal config-service; avoid in prod)
+
 docker run -d \
   --name noc-raven \
   --restart unless-stopped \
@@ -235,8 +241,10 @@ docker run -d \
 | 4739 | UDP | IPFIX | IPFIX flows |
 | 6343 | UDP | sFlow | sFlow v5 |
 | 162 | UDP | SNMP | SNMP traps |
-| 8084 | TCP | HTTP | Windows Events JSON |
-| 8080 | TCP | HTTP | Web control panel |
+| 8084 | TCP | HTTP | Windows Events JSON (expose on host) |
+| 8080 | TCP | HTTP | Web control panel (expose on host) |
+
+Note on 5004/tcp (config-service): This is an internal API proxied by Nginx at /api on port 8080. Do not expose 5004 in production. If needed for debugging, you may publish -p 5004:5004 temporarily and remove it afterward.
 
 #### Outbound (Forwarding via VPN)
 | Destination | Port | Protocol | Service |
