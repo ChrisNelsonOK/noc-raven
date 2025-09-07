@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -142,12 +144,85 @@ func getNestedBool(cfg Config, path ...string) (bool, bool) {
 
 func restartService(name string) error {
 	logf("restarting service: %s", name)
-	cmd := exec.Command("bash", restartScript, "restart", name)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		logf("restart %s failed: %v; out=%s", name, err, string(out))
-		return err
+	// 1) If running under production-service-manager (PID 1), trigger restart by killing the process.
+	//    This lets the running manager (PID 1) handle a clean restart with its own tracking.
+	if isPID1ProductionManager() {
+		if err := killServiceProcess(name); err == nil {
+			logf("killed %s process to trigger restart", name)
+			return nil
+		}
+		// If kill failed, continue with other fallbacks
 	}
+	// 2) Prefer supervisor if available
+	if _, err := exec.LookPath("supervisorctl"); err == nil {
+		cmd := exec.Command("supervisorctl", "restart", name)
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			logf("supervisorctl restart %s ok: %s", name, strings.TrimSpace(string(out)))
+			return nil
+		}
+		logf("supervisorctl restart %s failed: %v; out=%s", name, err, string(out))
+		// Try stop/start for services that may not support direct restart
+		_ = exec.Command("supervisorctl", "stop", name).Run()
+		out, err = exec.Command("supervisorctl", "start", name).CombinedOutput()
+		if err == nil {
+			logf("supervisorctl start %s ok: %s", name, strings.TrimSpace(string(out)))
+			return nil
+		}
+		logf("supervisorctl start %s failed: %v; out=%s", name, err, string(out))
+	}
+	// 3) Fallback to production-service-manager.sh if present (only when not PID1)
+	if _, err := os.Stat(restartScript); err == nil {
+		cmd := exec.Command("bash", restartScript, "restart", name)
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			logf("service-manager restart %s ok: %s", name, strings.TrimSpace(string(out)))
+			return nil
+		}
+		logf("service-manager restart %s failed: %v; out=%s", name, err, string(out))
+	}
+	// 4) Last resort: try legacy script if available
+	legacy := "/opt/noc-raven/scripts/service-manager.sh"
+	if _, err := os.Stat(legacy); err == nil {
+		cmd := exec.Command("bash", legacy, "restart", name)
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			logf("legacy service-manager restart %s ok: %s", name, strings.TrimSpace(string(out)))
+			return nil
+		}
+		logf("legacy service-manager restart %s failed: %v; out=%s", name, err, string(out))
+	}
+	return fmt.Errorf("no restart method succeeded for %s", name)
+}
+
+// isPID1ProductionManager returns true if PID 1 is the production-service-manager
+func isPID1ProductionManager() bool {
+	b, err := os.ReadFile("/proc/1/cmdline")
+	if err != nil { return false }
+	return bytes.Contains(b, []byte("production-service-manager.sh"))
+}
+
+// killServiceProcess attempts to gracefully terminate a service process by name
+func killServiceProcess(service string) error {
+	proc := service
+	switch service {
+	case "http-api":
+		proc = "config-service"
+	}
+	// Special-case nginx: prefer reload to avoid dropping proxy mid-request
+	if service == "nginx" {
+		if _, err := exec.LookPath("nginx"); err == nil {
+			cmd := exec.Command("nginx", "-s", "reload")
+			if out, err := cmd.CombinedOutput(); err == nil {
+				logf("nginx reload ok: %s", strings.TrimSpace(string(out)))
+				return nil
+			}
+		}
+	}
+	// Try TERM first, then KILL if needed
+	_ = exec.Command("pkill", "-TERM", "-x", proc).Run()
+	time.Sleep(2 * time.Second)
+	_ = exec.Command("pkill", "-KILL", "-x", proc).Run()
 	return nil
 }
 
@@ -220,6 +295,12 @@ func handlePostConfig(w http.ResponseWriter, r *http.Request) {
 	oldSnmpEn, _ := getNestedBool(oldCfg, "collection", "snmp", "enabled")
 	newSnmpEn, _ := getNestedBool(newCfg, "collection", "snmp", "enabled")
 	if oldTrap != newTrap || oldSnmpEn != newSnmpEn { restarts = append(restarts, "telegraf") }
+	// windows events => vector
+	oldWinPort, _ := getNestedInt(oldCfg, "collection", "windows", "port")
+	newWinPort, _ := getNestedInt(newCfg, "collection", "windows", "port")
+	oldWinEn, _ := getNestedBool(oldCfg, "collection", "windows", "enabled")
+	newWinEn, _ := getNestedBool(newCfg, "collection", "windows", "enabled")
+	if oldWinPort != newWinPort || oldWinEn != newWinEn { restarts = append(restarts, "vector") }
 	// perform restarts (dedupe)
 	did := map[string]bool{}
 	for _, s := range restarts {
@@ -252,6 +333,7 @@ func handleRestartService(w http.ResponseWriter, r *http.Request) {
 func newMux() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", handleHealth)
+	mux.HandleFunc("/api/system/status", handleSystemStatus)
 	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
 		// Allow CORS preflight without auth
 		if r.Method == http.MethodOptions {
@@ -300,6 +382,93 @@ func main() {
 		logf("server error: %v", err)
 		os.Exit(1)
 	}
+}
+
+// System status handler (basic)
+func handleSystemStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	// Helper to check if a process is running
+	isRunning := func(name string) bool {
+		cmd := exec.Command("pgrep", name)
+		if err := cmd.Run(); err != nil {
+			return false
+		}
+		return true
+	}
+	// Compute memory usage percent from /proc/meminfo
+	memPct := 0
+	if b, err := os.ReadFile("/proc/meminfo"); err == nil {
+		var totalKB, availKB int64
+		for _, line := range strings.Split(string(b), "\n") {
+			if strings.HasPrefix(line, "MemTotal:") {
+				fields := strings.Fields(line)
+				if len(fields) >= 2 { if v, e := strconv.ParseInt(fields[1], 10, 64); e == nil { totalKB = v } }
+			} else if strings.HasPrefix(line, "MemAvailable:") {
+				fields := strings.Fields(line)
+				if len(fields) >= 2 { if v, e := strconv.ParseInt(fields[1], 10, 64); e == nil { availKB = v } }
+			}
+		}
+		if totalKB > 0 && availKB >= 0 {
+			usedKB := totalKB - availKB
+			memPct = int((usedKB * 100) / totalKB)
+			if memPct < 0 { memPct = 0 }
+			if memPct > 100 { memPct = 100 }
+		}
+	}
+	// Approximate CPU usage percent from 1-min load / NumCPU
+	cpuPct := 0
+	if b, err := os.ReadFile("/proc/loadavg"); err == nil {
+		parts := strings.Fields(string(b))
+		if len(parts) > 0 {
+			if load, err := strconv.ParseFloat(parts[0], 64); err == nil {
+				cpus := runtime.NumCPU()
+				if cpus < 1 { cpus = 1 }
+				cpu := int((load / float64(cpus)) * 100.0)
+				if cpu < 0 { cpu = 0 }
+				if cpu > 100 { cpu = 100 }
+				cpuPct = cpu
+			}
+		}
+	}
+	services := map[string]map[string]any{}
+	check := func(name string, critical bool) {
+		running := isRunning(name)
+		st := "failed"
+		if running { st = "healthy" }
+		services[name] = map[string]any{
+			"status": st,
+			"critical": critical,
+		}
+	}
+	check("nginx", true)
+	check("vector", true)
+	check("fluent-bit", true)
+	check("goflow2", true)
+	check("telegraf", false)
+	healthyCount := 0
+	for _, s := range services {
+		if s["status"] == "healthy" { healthyCount++ }
+	}
+	sys := "degraded"
+	if healthyCount >= 3 { sys = "healthy" } else if healthyCount == 0 { sys = "failed" }
+	// uptime
+	uptime := "unknown"
+	if b, err := os.ReadFile("/proc/uptime"); err == nil {
+		parts := strings.Split(string(b), " ")
+		if len(parts) > 0 {
+			if secs, err := time.ParseDuration(strings.TrimSpace(parts[0]) + "s"); err == nil {
+				uptime = fmt.Sprintf("%dh %dm", int(secs.Hours()), int(secs.Minutes())%60)
+			}
+		}
+	}
+	resp := map[string]any{
+		"status": sys,
+		"uptime": uptime,
+		"cpu_usage": cpuPct,
+		"memory_usage": memPct,
+		"services": services,
+	}
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func withCORS(next http.Handler) http.Handler {

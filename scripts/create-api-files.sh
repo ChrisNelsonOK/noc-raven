@@ -489,13 +489,17 @@ cat > /opt/noc-raven/web/api/config.json << EOF
 }
 EOF
 
-# Start the simple HTTP API server
-start_api_server
+# Start the simple HTTP API server (optional)
+if [ "${NOC_RAVEN_ENABLE_SIMPLE_API:-false}" = "true" ]; then
+  start_api_server
+  log "Simple HTTP API server started on port $API_PORT for live data"
+else
+  log "Skipping simple HTTP API server (disabled by default). Set NOC_RAVEN_ENABLE_SIMPLE_API=true to enable."
+fi
 
 # Set proper ownership and permissions
 chown -R nocraven:nocraven /opt/noc-raven/web/api 2>/dev/null || true
 chmod -R 644 /opt/noc-raven/web/api/*.json 2>/dev/null || true
 
 log "API files created successfully with waiting-for-data status"
-log "Simple HTTP API server started on port $API_PORT for live data"
-echo "API files and HTTP API server configured successfully"
+echo "API files configured successfully"

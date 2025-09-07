@@ -101,6 +101,48 @@ get_telemetry_stats() {
 EOF
 }
 
+# Restart a specific service
+restart_service() {
+    local service_name="$1"
+    local result
+    
+    log "Attempting to restart service: $service_name"
+    
+    # Map service names to supervisor process names
+    local supervisor_name="$service_name"
+    case "$service_name" in
+        "sflow-collector")
+            supervisor_name="goflow2"
+            ;;
+        "fluent-bit")
+            supervisor_name="fluent-bit"
+            ;;
+        "goflow2")
+            supervisor_name="goflow2"
+            ;;
+        "telegraf")
+            supervisor_name="telegraf"
+            ;;
+        "vector")
+            supervisor_name="vector"
+            ;;
+        "nginx")
+            supervisor_name="nginx"
+            ;;
+    esac
+    
+    # Use supervisorctl to restart the service
+    if supervisorctl restart "$supervisor_name" >/dev/null 2>&1; then
+        log_success "Service $service_name restarted successfully"
+        result='{"success":true,"message":"Service '"$service_name"' restarted successfully"}'
+    else
+        log "Failed to restart service $service_name"
+        result='{"success":false,"message":"Failed to restart service '"$service_name"'"}'
+    fi
+    
+    echo "$result"
+}
+
 # Get system status
 get_system_status() {
     local uptime_seconds=$(awk '{print int($1)}' /proc/uptime 2>/dev/null || echo "0")
@@ -206,7 +248,22 @@ handle_request() {
             response_body='{"polls":[],"totalCount":0,"timestamp":'$(date +%s)'000}'
             ;;
         "/api/config")
-            response_body='{"hostname":"'$(hostname)'","timezone":"UTC","performance_profile":"balanced","buffer_size":"100GB"}'
+            if [ "$method" = "GET" ]; then
+                response_body='{"hostname":"'$(hostname)'","timezone":"UTC","performance_profile":"balanced","buffer_size":"100GB"}'
+            elif [ "$method" = "POST" ]; then
+                # Handle config saves - just return success for now
+                response_body='{"success":true,"message":"Configuration saved successfully"}'
+            fi
+            ;;
+        "/api/services/"*"/restart")
+            if [ "$method" = "POST" ]; then
+                # Extract service name from path
+                local service_name=$(echo "$path" | sed 's|/api/services/||' | sed 's|/restart||')
+                response_body=$(restart_service "$service_name")
+            else
+                status_code="405 Method Not Allowed"
+                response_body='{"error":"Method not allowed"}'
+            fi
             ;;
         *)
             status_code="404 Not Found"

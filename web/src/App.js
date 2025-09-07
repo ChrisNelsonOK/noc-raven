@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './styles.css';
-import Settings from './Settings';
+import Settings from './components/Settings';
 
 // Simple routing implementation
 const Router = ({ children }) => children;
@@ -17,6 +17,30 @@ const useNavigate = () => {
     window.location.hash = path;
     window.dispatchEvent(new Event('hashchange'));
   };
+};
+
+// Toast system
+const ToastContainer = () => {
+  const [toasts, setToasts] = useState([]);
+  useEffect(() => {
+    const handler = (e) => {
+      const { type = 'info', message, ttl = 5000 } = e.detail || {};
+      const id = Date.now() + Math.random();
+      setToasts((prev) => [...prev, { id, type, message }]);
+      setTimeout(() => setToasts((prev) => prev.filter(t => t.id !== id)), ttl);
+    };
+    window.addEventListener('toast', handler);
+    return () => window.removeEventListener('toast', handler);
+  }, []);
+  return (
+    <div className="toast-container">
+      {toasts.map(t => (
+        <div key={t.id} className={`toast toast-${t.type}`}>
+          <span>{t.message}</span>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 // API service
@@ -41,15 +65,14 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [statusData, metricsData, servicesData] = await Promise.all([
-        apiService.fetchData('/status'),
-        apiService.fetchData('/metrics'),
-        apiService.fetchData('/services')
+      const [statusData] = await Promise.all([
+        apiService.fetchData('/system/status')
       ]);
       
       setStatus(statusData);
-      setMetrics(metricsData);
-      setServices(servicesData);
+      // Optional future wiring: metrics/services
+      setMetrics(null);
+      setServices(null);
     };
 
     fetchData();
@@ -518,15 +541,17 @@ const App = () => {
 
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: '📊' },
-    { path: '/flows', label: 'NetFlow', icon: '🌐' },
+    { path: '/flows', label: 'Flow', icon: '🌐' },
     { path: '/syslog', label: 'Syslog', icon: '📋' },
     { path: '/snmp', label: 'SNMP', icon: '🔌' },
     { path: '/metrics', label: 'Metrics', icon: '📈' },
+    { path: '/windows', label: 'Windows Events', icon: '🪟' },
     { path: '/settings', label: 'Settings', icon: '⚙️' }
   ];
 
-  return (
+return (
     <div className="app">
+      <ToastContainer />
       <div className="sidebar">
         <div className="sidebar-header">
           <h2>🦅 NoC Raven</h2>
@@ -554,6 +579,7 @@ const App = () => {
           <Route path="/snmp" element={<SNMP />} />
           <Route path="/metrics" element={<Metrics />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/windows" element={<Settings initialTab="windows" />} />
         </Router>
       </div>
     </div>

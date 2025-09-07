@@ -49,6 +49,22 @@
 ### Backend API (Config-Service)
 - Go microservice on port 5004 handling GET/POST /api/config and POST /api/services/*/restart
 - Atomic config writes with backups; restarts impacted services (fluent-bit, goflow2, telegraf)
+- Restart strategy hierarchy:
+  1) Use supervisorctl restart <service> when available (container with supervisord)
+  2) Fallback to production-service-manager.sh restart <service>
+  3) If running under production-service-manager (PID 1), gracefully kill the service process to trigger its auto-recovery loop; for nginx, perform nginx -s reload to avoid interrupting active requests
+
+### E2E tests
+- tests/e2e/restart_e2e.sh exercises nginx-proxied endpoints and verifies success JSON and service health
+- Usage:
+  ```bash
+  # optional env vars: NOC_RAVEN_CONTAINER, NOC_RAVEN_BASE_URL
+  bash tests/e2e/restart_e2e.sh
+  ```
+
+### UI notifications
+- A lightweight toast system is wired at app-level; components dispatch custom 'toast' events
+- Success/failure toasts appear bottom-right for settings save and service restarts
 
 ### Dynamic Ports
 - GoFlow2 reads NetFlow/IPFIX/sFlow ports from JSON via start-goflow2-production.sh

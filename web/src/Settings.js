@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
 // Settings Component with Telemetry Configuration
-const Settings = () => {
+// Updated: 2025-09-06T21:53:31Z - Added Windows Events tab and fixed service restarts
+const Settings = ({ initialTab }) => {
   const [config, setConfig] = useState({
     collection: {
       syslog: {
@@ -23,11 +24,27 @@ const Settings = () => {
         bindAddress: '0.0.0.0',
         pollInterval: 300
       },
+      sflow: {
+        enabled: true,
+        port: 6343,
+        protocol: 'UDP',
+        bindAddress: '0.0.0.0',
+        sampleRate: 1000,
+        agentAddress: '0.0.0.0'
+      },
       telegraf: {
         enabled: true,
         port: 8125,
         protocol: 'UDP',
         bindAddress: '0.0.0.0'
+      },
+      windows: {
+        enabled: false,
+        port: 8085,
+        protocol: 'HTTP',
+        bindAddress: '0.0.0.0',
+        format: 'json',
+        bufferSize: 10
       }
     },
     forwarding: {
@@ -86,12 +103,13 @@ const Settings = () => {
     }
   });
 
-  const [activeTab, setActiveTab] = useState('collection');
+  const [activeTab, setActiveTab] = useState(initialTab || 'collection');
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
 
   // Load configuration on component mount
   useEffect(() => {
+    console.log('Loading NoC Raven configuration with Windows Events support');
     loadConfiguration();
   }, []);
 
@@ -180,6 +198,7 @@ const Settings = () => {
   const tabs = [
     { id: 'collection', label: 'Collection Ports', icon: '📥' },
     { id: 'forwarding', label: 'Data Forwarding', icon: '📤' },
+    { id: 'windows', label: 'Windows Events', icon: '🪟' },
     { id: 'alerts', label: 'Alerts & Notifications', icon: '🚨' },
     { id: 'retention', label: 'Data Retention', icon: '🗄️' },
     { id: 'performance', label: 'Performance', icon: '⚡' }
@@ -369,6 +388,150 @@ const Settings = () => {
                   🔄 Restart SNMP Service
                 </button>
               </div>
+
+              {/* sFlow Configuration */}
+              <div className="service-config-card">
+                <div className="service-header">
+                  <h3>🌊 sFlow Collection</h3>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={config.collection.sflow?.enabled || false}
+                      onChange={(e) => updateConfig('collection', 'sflow', 'enabled', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                <div className="config-grid">
+                  <div className="config-field">
+                    <label>Listen Port</label>
+                    <input
+                      type="number"
+                      value={config.collection.sflow?.port || 6343}
+                      onChange={(e) => updateConfig('collection', 'sflow', 'port', parseInt(e.target.value))}
+                      min="1"
+                      max="65535"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Protocol</label>
+                    <select
+                      value={config.collection.sflow?.protocol || 'UDP'}
+                      onChange={(e) => updateConfig('collection', 'sflow', 'protocol', e.target.value)}
+                    >
+                      <option value="UDP">UDP</option>
+                    </select>
+                  </div>
+                  <div className="config-field">
+                    <label>Sample Rate</label>
+                    <input
+                      type="number"
+                      value={config.collection.sflow?.sampleRate || 1000}
+                      onChange={(e) => updateConfig('collection', 'sflow', 'sampleRate', parseInt(e.target.value))}
+                      min="100"
+                      max="10000"
+                      step="100"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Agent Address</label>
+                    <input
+                      type="text"
+                      value={config.collection.sflow?.agentAddress || '0.0.0.0'}
+                      onChange={(e) => updateConfig('collection', 'sflow', 'agentAddress', e.target.value)}
+                      placeholder="0.0.0.0 (auto-detect)"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Bind Address</label>
+                    <input
+                      type="text"
+                      value={config.collection.sflow?.bindAddress || '0.0.0.0'}
+                      onChange={(e) => updateConfig('collection', 'sflow', 'bindAddress', e.target.value)}
+                      placeholder="0.0.0.0 (all interfaces)"
+                    />
+                  </div>
+                </div>
+                <button 
+                  className="restart-btn" 
+                  onClick={() => restartService('goflow2')}
+                >
+                  🔄 Restart sFlow Service
+                </button>
+              </div>
+
+              {/* Windows Events Configuration */}
+              <div className="service-config-card">
+                <div className="service-header">
+                  <h3>🪟 Windows Events Collection</h3>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={config.collection.windows?.enabled || false}
+                      onChange={(e) => updateConfig('collection', 'windows', 'enabled', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                <div className="config-grid">
+                  <div className="config-field">
+                    <label>Listen Port</label>
+                    <input
+                      type="number"
+                      value={config.collection.windows?.port || 8085}
+                      onChange={(e) => updateConfig('collection', 'windows', 'port', parseInt(e.target.value))}
+                      min="1"
+                      max="65535"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Protocol</label>
+                    <select
+                      value={config.collection.windows?.protocol || 'HTTP'}
+                      onChange={(e) => updateConfig('collection', 'windows', 'protocol', e.target.value)}
+                    >
+                      <option value="HTTP">HTTP</option>
+                    </select>
+                  </div>
+                  <div className="config-field">
+                    <label>Input Format</label>
+                    <select
+                      value={config.collection.windows?.format || 'json'}
+                      onChange={(e) => updateConfig('collection', 'windows', 'format', e.target.value)}
+                    >
+                      <option value="json">JSON</option>
+                      <option value="xml">XML</option>
+                      <option value="text">Plain Text</option>
+                    </select>
+                  </div>
+                  <div className="config-field">
+                    <label>Buffer Size (MB)</label>
+                    <input
+                      type="number"
+                      value={config.collection.windows?.bufferSize || 10}
+                      onChange={(e) => updateConfig('collection', 'windows', 'bufferSize', parseInt(e.target.value))}
+                      min="1"
+                      max="1000"
+                      step="1"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Bind Address</label>
+                    <input
+                      type="text"
+                      value={config.collection.windows?.bindAddress || '0.0.0.0'}
+                      onChange={(e) => updateConfig('collection', 'windows', 'bindAddress', e.target.value)}
+                      placeholder="0.0.0.0 (all interfaces)"
+                    />
+                  </div>
+                </div>
+                <button 
+                  className="restart-btn" 
+                  onClick={() => restartService('fluent-bit')}
+                >
+                  🔄 Restart Windows Events Service
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -387,7 +550,7 @@ const Settings = () => {
                   <label className="toggle-switch">
                     <input
                       type="checkbox"
-                      checked={config.forwarding.syslog.enabled}
+                      checked={config.forwarding.syslog?.enabled || false}
                       onChange={(e) => updateConfig('forwarding', 'syslog', 'enabled', e.target.checked)}
                     />
                     <span className="toggle-slider"></span>
@@ -398,7 +561,7 @@ const Settings = () => {
                     <label>Target Host/IP</label>
                     <input
                       type="text"
-                      value={config.forwarding.syslog.targetHost}
+                      value={config.forwarding.syslog?.targetHost || ''}
                       onChange={(e) => updateConfig('forwarding', 'syslog', 'targetHost', e.target.value)}
                       placeholder="192.168.1.100 or syslog.company.com"
                     />
@@ -407,7 +570,7 @@ const Settings = () => {
                     <label>Target Port</label>
                     <input
                       type="number"
-                      value={config.forwarding.syslog.targetPort}
+                      value={config.forwarding.syslog?.targetPort || 514}
                       onChange={(e) => updateConfig('forwarding', 'syslog', 'targetPort', parseInt(e.target.value))}
                       min="1"
                       max="65535"
@@ -416,7 +579,7 @@ const Settings = () => {
                   <div className="config-field">
                     <label>Protocol</label>
                     <select
-                      value={config.forwarding.syslog.protocol}
+                      value={config.forwarding.syslog?.protocol || 'UDP'}
                       onChange={(e) => updateConfig('forwarding', 'syslog', 'protocol', e.target.value)}
                     >
                       <option value="UDP">UDP</option>
@@ -427,7 +590,7 @@ const Settings = () => {
                   <div className="config-field">
                     <label>Message Format</label>
                     <select
-                      value={config.forwarding.syslog.format}
+                      value={config.forwarding.syslog?.format || 'RFC3164'}
                       onChange={(e) => updateConfig('forwarding', 'syslog', 'format', e.target.value)}
                     >
                       <option value="RFC3164">RFC3164 (Legacy)</option>
@@ -445,7 +608,7 @@ const Settings = () => {
                   <label className="toggle-switch">
                     <input
                       type="checkbox"
-                      checked={config.forwarding.netflow.enabled}
+                      checked={config.forwarding.netflow?.enabled || false}
                       onChange={(e) => updateConfig('forwarding', 'netflow', 'enabled', e.target.checked)}
                     />
                     <span className="toggle-slider"></span>
@@ -456,7 +619,7 @@ const Settings = () => {
                     <label>Target Host/IP</label>
                     <input
                       type="text"
-                      value={config.forwarding.netflow.targetHost}
+                      value={config.forwarding.netflow?.targetHost || ''}
                       onChange={(e) => updateConfig('forwarding', 'netflow', 'targetHost', e.target.value)}
                       placeholder="192.168.1.100 or collector.company.com"
                     />
@@ -465,7 +628,7 @@ const Settings = () => {
                     <label>Target Port</label>
                     <input
                       type="number"
-                      value={config.forwarding.netflow.targetPort}
+                      value={config.forwarding.netflow?.targetPort || 2055}
                       onChange={(e) => updateConfig('forwarding', 'netflow', 'targetPort', parseInt(e.target.value))}
                       min="1"
                       max="65535"
@@ -474,7 +637,7 @@ const Settings = () => {
                   <div className="config-field">
                     <label>NetFlow Version</label>
                     <select
-                      value={config.forwarding.netflow.version}
+                      value={config.forwarding.netflow?.version || 'v9'}
                       onChange={(e) => updateConfig('forwarding', 'netflow', 'version', e.target.value)}
                     >
                       <option value="v5">NetFlow v5</option>
@@ -493,7 +656,7 @@ const Settings = () => {
                   <label className="toggle-switch">
                     <input
                       type="checkbox"
-                      checked={config.forwarding.metrics.enabled}
+                      checked={config.forwarding.metrics?.enabled || false}
                       onChange={(e) => updateConfig('forwarding', 'metrics', 'enabled', e.target.checked)}
                     />
                     <span className="toggle-slider"></span>
@@ -504,7 +667,7 @@ const Settings = () => {
                     <label>Target Host/IP</label>
                     <input
                       type="text"
-                      value={config.forwarding.metrics.targetHost}
+                      value={config.forwarding.metrics?.targetHost || ''}
                       onChange={(e) => updateConfig('forwarding', 'metrics', 'targetHost', e.target.value)}
                       placeholder="prtg.company.com or prometheus.local"
                     />
@@ -513,7 +676,7 @@ const Settings = () => {
                     <label>Target Port</label>
                     <input
                       type="number"
-                      value={config.forwarding.metrics.targetPort}
+                      value={config.forwarding.metrics?.targetPort || 8080}
                       onChange={(e) => updateConfig('forwarding', 'metrics', 'targetPort', parseInt(e.target.value))}
                       min="1"
                       max="65535"
@@ -522,7 +685,7 @@ const Settings = () => {
                   <div className="config-field">
                     <label>Protocol</label>
                     <select
-                      value={config.forwarding.metrics.protocol}
+                      value={config.forwarding.metrics?.protocol || 'HTTP'}
                       onChange={(e) => updateConfig('forwarding', 'metrics', 'protocol', e.target.value)}
                     >
                       <option value="HTTP">HTTP</option>
@@ -534,9 +697,496 @@ const Settings = () => {
                     <label>API Endpoint</label>
                     <input
                       type="text"
-                      value={config.forwarding.metrics.endpoint}
+                      value={config.forwarding.metrics?.endpoint || ''}
                       onChange={(e) => updateConfig('forwarding', 'metrics', 'endpoint', e.target.value)}
-                      placeholder="/api/v1/write"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SNMP Forwarding */}
+              <div className="service-config-card">
+                <div className="service-header">
+                  <h3>🔗 SNMP Forwarding</h3>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={config.forwarding.snmp?.enabled || false}
+                      onChange={(e) => updateConfig('forwarding', 'snmp', 'enabled', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                <div className="config-grid">
+                  <div className="config-field">
+                    <label>Target Host/IP</label>
+                    <input
+                      type="text"
+                      value={config.forwarding.snmp?.targetHost || ''}
+                      onChange={(e) => updateConfig('forwarding', 'snmp', 'targetHost', e.target.value)}
+                      placeholder="snmp.company.com or 192.168.1.100"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Target Port</label>
+                    <input
+                      type="number"
+                      value={config.forwarding.snmp?.targetPort || 162}
+                      onChange={(e) => updateConfig('forwarding', 'snmp', 'targetPort', parseInt(e.target.value))}
+                      min="1"
+                      max="65535"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>SNMP Version</label>
+                    <select
+                      value={config.forwarding.snmp?.version || 'v2c'}
+                      onChange={(e) => updateConfig('forwarding', 'snmp', 'version', e.target.value)}
+                    >
+                      <option value="v1">SNMP v1</option>
+                      <option value="v2c">SNMP v2c</option>
+                      <option value="v3">SNMP v3</option>
+                    </select>
+                  </div>
+                  <div className="config-field">
+                    <label>Community String</label>
+                    <input
+                      type="text"
+                      value={config.forwarding.snmp?.community || 'public'}
+                      onChange={(e) => updateConfig('forwarding', 'snmp', 'community', e.target.value)}
+                      placeholder="public"
+                    />
+                  </div>
+                  {config.forwarding.snmp?.version === 'v3' && (
+                    <>
+                      <div className="config-field">
+                        <label>Username</label>
+                        <input
+                          type="text"
+                          value={config.forwarding.snmp?.username || ''}
+                          onChange={(e) => updateConfig('forwarding', 'snmp', 'username', e.target.value)}
+                          placeholder="snmpuser"
+                        />
+                      </div>
+                      <div className="config-field">
+                        <label>Auth Protocol</label>
+                        <select
+                          value={config.forwarding.snmp?.authProtocol || 'SHA'}
+                          onChange={(e) => updateConfig('forwarding', 'snmp', 'authProtocol', e.target.value)}
+                        >
+                          <option value="MD5">MD5</option>
+                          <option value="SHA">SHA</option>
+                          <option value="SHA224">SHA224</option>
+                          <option value="SHA256">SHA256</option>
+                        </select>
+                      </div>
+                      <div className="config-field">
+                        <label>Auth Password</label>
+                        <input
+                          type="password"
+                          value={config.forwarding.snmp?.authPassword || ''}
+                          onChange={(e) => updateConfig('forwarding', 'snmp', 'authPassword', e.target.value)}
+                          placeholder="Authentication password"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* sFlow Forwarding */}
+              <div className="service-config-card">
+                <div className="service-header">
+                  <h3>🌊 sFlow Forwarding</h3>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={config.forwarding.sflow?.enabled || false}
+                      onChange={(e) => updateConfig('forwarding', 'sflow', 'enabled', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                <div className="config-grid">
+                  <div className="config-field">
+                    <label>Target Host/IP</label>
+                    <input
+                      type="text"
+                      value={config.forwarding.sflow?.targetHost || ''}
+                      onChange={(e) => updateConfig('forwarding', 'sflow', 'targetHost', e.target.value)}
+                      placeholder="sflow.company.com or 192.168.1.100"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Target Port</label>
+                    <input
+                      type="number"
+                      value={config.forwarding.sflow?.targetPort || 6343}
+                      onChange={(e) => updateConfig('forwarding', 'sflow', 'targetPort', parseInt(e.target.value))}
+                      min="1"
+                      max="65535"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Sample Rate</label>
+                    <input
+                      type="number"
+                      value={config.forwarding.sflow?.sampleRate || 1000}
+                      onChange={(e) => updateConfig('forwarding', 'sflow', 'sampleRate', parseInt(e.target.value))}
+                      min="1"
+                      max="1000000"
+                      placeholder="1000"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Agent Address</label>
+                    <input
+                      type="text"
+                      value={config.forwarding.sflow?.agentAddress || ''}
+                      onChange={(e) => updateConfig('forwarding', 'sflow', 'agentAddress', e.target.value)}
+                      placeholder="192.168.1.50 (collector IP)"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>sFlow Version</label>
+                    <select
+                      value={config.forwarding.sflow?.version || '5'}
+                      onChange={(e) => updateConfig('forwarding', 'sflow', 'version', e.target.value)}
+                    >
+                      <option value="4">sFlow v4</option>
+                      <option value="5">sFlow v5</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Windows Events Forwarding */}
+              <div className="service-config-card">
+                <div className="service-header">
+                  <h3>🪟 Windows Events Forwarding</h3>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={config.forwarding.windows?.enabled || false}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'enabled', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                <div className="config-grid">
+                  <div className="config-field">
+                    <label>Target Host/IP</label>
+                    <input
+                      type="text"
+                      value={config.forwarding.windows?.targetHost || ''}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'targetHost', e.target.value)}
+                      placeholder="events.company.com or 192.168.1.100"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Target Port</label>
+                    <input
+                      type="number"
+                      value={config.forwarding.windows?.targetPort || 8085}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'targetPort', parseInt(e.target.value))}
+                      min="1"
+                      max="65535"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Input Format</label>
+                    <select
+                      value={config.forwarding.windows?.format || 'http'}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'format', e.target.value)}
+                    >
+                      <option value="http">HTTP JSON</option>
+                      <option value="syslog">Syslog</option>
+                      <option value="winlogbeat">Winlogbeat</option>
+                    </select>
+                  </div>
+                  <div className="config-field">
+                    <label>Event Log Channels</label>
+                    <input
+                      type="text"
+                      value={config.forwarding.windows?.channels || 'System,Security,Application'}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'channels', e.target.value)}
+                      placeholder="System,Security,Application"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Buffer Size (MB)</label>
+                    <input
+                      type="number"
+                      value={config.forwarding.windows?.bufferSize || 10}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'bufferSize', parseInt(e.target.value))}
+                      min="1"
+                      max="1000"
+                      placeholder="10"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Windows Events Configuration */}
+        {activeTab === 'windows' && (
+          <div className="config-section">
+            <h2>🪟 Windows Events Configuration</h2>
+            <p>Configure Windows Event Log collection and processing settings</p>
+            
+            <div className="service-configs">
+              {/* Collection Settings */}
+              <div className="service-config-card">
+                <div className="service-header">
+                  <h3>📥 Event Collection</h3>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={config.collection.windows?.enabled || false}
+                      onChange={(e) => updateConfig('collection', 'windows', 'enabled', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                <div className="config-grid">
+                  <div className="config-field">
+                    <label>Collection Port</label>
+                    <input
+                      type="number"
+                      value={config.collection.windows?.port || 8085}
+                      onChange={(e) => updateConfig('collection', 'windows', 'port', parseInt(e.target.value))}
+                      min="1"
+                      max="65535"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Input Protocol</label>
+                    <select
+                      value={config.collection.windows?.protocol || 'HTTP'}
+                      onChange={(e) => updateConfig('collection', 'windows', 'protocol', e.target.value)}
+                    >
+                      <option value="HTTP">HTTP</option>
+                      <option value="HTTPS">HTTPS</option>
+                    </select>
+                  </div>
+                  <div className="config-field">
+                    <label>Event Format</label>
+                    <select
+                      value={config.collection.windows?.format || 'json'}
+                      onChange={(e) => updateConfig('collection', 'windows', 'format', e.target.value)}
+                    >
+                      <option value="json">JSON</option>
+                      <option value="xml">XML</option>
+                      <option value="text">Plain Text</option>
+                      <option value="evtx">Windows EVTX</option>
+                    </select>
+                  </div>
+                  <div className="config-field">
+                    <label>Buffer Size (MB)</label>
+                    <input
+                      type="number"
+                      value={config.collection.windows?.bufferSize || 10}
+                      onChange={(e) => updateConfig('collection', 'windows', 'bufferSize', parseInt(e.target.value))}
+                      min="1"
+                      max="1000"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Bind Address</label>
+                    <input
+                      type="text"
+                      value={config.collection.windows?.bindAddress || '0.0.0.0'}
+                      onChange={(e) => updateConfig('collection', 'windows', 'bindAddress', e.target.value)}
+                      placeholder="0.0.0.0 (all interfaces)"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Max Connections</label>
+                    <input
+                      type="number"
+                      value={config.collection.windows?.maxConnections || 100}
+                      onChange={(e) => updateConfig('collection', 'windows', 'maxConnections', parseInt(e.target.value))}
+                      min="1"
+                      max="1000"
+                    />
+                  </div>
+                </div>
+                <button 
+                  className="restart-btn" 
+                  onClick={() => restartService('fluent-bit')}
+                >
+                  🔄 Restart Collection Service
+                </button>
+              </div>
+
+              {/* Event Log Channels */}
+              <div className="service-config-card">
+                <div className="service-header">
+                  <h3>📂 Event Log Channels</h3>
+                </div>
+                <div className="config-grid">
+                  <div className="config-field span-2">
+                    <label>Event Log Channels (comma-separated)</label>
+                    <textarea
+                      value={config.collection.windows?.channels || 'System,Security,Application'}
+                      onChange={(e) => updateConfig('collection', 'windows', 'channels', e.target.value)}
+                      placeholder="System,Security,Application,Setup,Microsoft-Windows-Sysmon/Operational"
+                      rows="3"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Event Level Filter</label>
+                    <select
+                      value={config.collection.windows?.eventLevel || 'all'}
+                      onChange={(e) => updateConfig('collection', 'windows', 'eventLevel', e.target.value)}
+                    >
+                      <option value="all">All Events</option>
+                      <option value="critical">Critical Only</option>
+                      <option value="error">Error & Above</option>
+                      <option value="warning">Warning & Above</option>
+                      <option value="info">Information & Above</option>
+                    </select>
+                  </div>
+                  <div className="config-field">
+                    <label>Max Events per Batch</label>
+                    <input
+                      type="number"
+                      value={config.collection.windows?.batchSize || 1000}
+                      onChange={(e) => updateConfig('collection', 'windows', 'batchSize', parseInt(e.target.value))}
+                      min="10"
+                      max="10000"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Forwarding Settings */}
+              <div className="service-config-card">
+                <div className="service-header">
+                  <h3>📤 Event Forwarding</h3>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={config.forwarding.windows?.enabled || false}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'enabled', e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                <div className="config-grid">
+                  <div className="config-field">
+                    <label>Target Host/IP</label>
+                    <input
+                      type="text"
+                      value={config.forwarding.windows?.targetHost || ''}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'targetHost', e.target.value)}
+                      placeholder="events.company.com or 192.168.1.100"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Target Port</label>
+                    <input
+                      type="number"
+                      value={config.forwarding.windows?.targetPort || 8085}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'targetPort', parseInt(e.target.value))}
+                      min="1"
+                      max="65535"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Output Format</label>
+                    <select
+                      value={config.forwarding.windows?.format || 'http'}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'format', e.target.value)}
+                    >
+                      <option value="http">HTTP JSON</option>
+                      <option value="syslog">Syslog</option>
+                      <option value="tcp">TCP JSON</option>
+                      <option value="udp">UDP JSON</option>
+                    </select>
+                  </div>
+                  <div className="config-field">
+                    <label>Compression</label>
+                    <select
+                      value={config.forwarding.windows?.compression || 'none'}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'compression', e.target.value)}
+                    >
+                      <option value="none">None</option>
+                      <option value="gzip">GZIP</option>
+                      <option value="lz4">LZ4</option>
+                    </select>
+                  </div>
+                  <div className="config-field">
+                    <label>Forward Buffer (MB)</label>
+                    <input
+                      type="number"
+                      value={config.forwarding.windows?.bufferSize || 10}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'bufferSize', parseInt(e.target.value))}
+                      min="1"
+                      max="1000"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Retry Attempts</label>
+                    <input
+                      type="number"
+                      value={config.forwarding.windows?.retryAttempts || 3}
+                      onChange={(e) => updateConfig('forwarding', 'windows', 'retryAttempts', parseInt(e.target.value))}
+                      min="0"
+                      max="10"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Advanced Settings */}
+              <div className="service-config-card">
+                <div className="service-header">
+                  <h3>⚙️ Advanced Settings</h3>
+                </div>
+                <div className="config-grid">
+                  <div className="config-field">
+                    <label>Authentication Required</label>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={config.collection.windows?.authRequired || false}
+                        onChange={(e) => updateConfig('collection', 'windows', 'authRequired', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <div className="config-field">
+                    <label>Rate Limiting (events/sec)</label>
+                    <input
+                      type="number"
+                      value={config.collection.windows?.rateLimit || 1000}
+                      onChange={(e) => updateConfig('collection', 'windows', 'rateLimit', parseInt(e.target.value))}
+                      min="10"
+                      max="10000"
+                    />
+                  </div>
+                  <div className="config-field">
+                    <label>Enable Debugging</label>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={config.collection.windows?.debug || false}
+                        onChange={(e) => updateConfig('collection', 'windows', 'debug', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <div className="config-field">
+                    <label>Log Rotation Size (MB)</label>
+                    <input
+                      type="number"
+                      value={config.collection.windows?.logRotationSize || 100}
+                      onChange={(e) => updateConfig('collection', 'windows', 'logRotationSize', parseInt(e.target.value))}
+                      min="10"
+                      max="1000"
                     />
                   </div>
                 </div>
@@ -559,7 +1209,7 @@ const Settings = () => {
                     <label>CPU Usage Alert (%)</label>
                     <input
                       type="number"
-                      value={config.alerts.cpuThreshold}
+                      value={config.alerts?.cpuThreshold || 80}
                       onChange={(e) => updateSimpleConfig('alerts', 'cpuThreshold', parseInt(e.target.value))}
                       min="0"
                       max="100"
@@ -569,7 +1219,7 @@ const Settings = () => {
                     <label>Memory Usage Alert (%)</label>
                     <input
                       type="number"
-                      value={config.alerts.memoryThreshold}
+                      value={config.alerts?.memoryThreshold || 85}
                       onChange={(e) => updateSimpleConfig('alerts', 'memoryThreshold', parseInt(e.target.value))}
                       min="0"
                       max="100"
@@ -579,7 +1229,7 @@ const Settings = () => {
                     <label>Disk Usage Alert (%)</label>
                     <input
                       type="number"
-                      value={config.alerts.diskThreshold}
+                      value={config.alerts?.diskThreshold || 90}
                       onChange={(e) => updateSimpleConfig('alerts', 'diskThreshold', parseInt(e.target.value))}
                       min="0"
                       max="100"
@@ -589,7 +1239,7 @@ const Settings = () => {
                     <label>Network Usage Alert (%)</label>
                     <input
                       type="number"
-                      value={config.alerts.networkThreshold}
+                      value={config.alerts?.networkThreshold || 95}
                       onChange={(e) => updateSimpleConfig('alerts', 'networkThreshold', parseInt(e.target.value))}
                       min="0"
                       max="100"
@@ -604,7 +1254,7 @@ const Settings = () => {
                   <label className="toggle-switch">
                     <input
                       type="checkbox"
-                      checked={config.alerts.emailEnabled}
+                      checked={config.alerts?.emailEnabled || false}
                       onChange={(e) => updateSimpleConfig('alerts', 'emailEnabled', e.target.checked)}
                     />
                     <span className="toggle-slider"></span>
@@ -615,7 +1265,7 @@ const Settings = () => {
                     <label>SMTP Server</label>
                     <input
                       type="text"
-                      value={config.alerts.emailServer}
+                      value={config.alerts?.emailServer || ''}
                       onChange={(e) => updateSimpleConfig('alerts', 'emailServer', e.target.value)}
                       placeholder="smtp.gmail.com"
                     />
@@ -624,7 +1274,7 @@ const Settings = () => {
                     <label>SMTP Port</label>
                     <input
                       type="number"
-                      value={config.alerts.emailPort}
+                      value={config.alerts?.emailPort || 587}
                       onChange={(e) => updateSimpleConfig('alerts', 'emailPort', parseInt(e.target.value))}
                       min="1"
                       max="65535"
@@ -634,7 +1284,7 @@ const Settings = () => {
                     <label>Username</label>
                     <input
                       type="text"
-                      value={config.alerts.emailUsername}
+                      value={config.alerts?.emailUsername || ''}
                       onChange={(e) => updateSimpleConfig('alerts', 'emailUsername', e.target.value)}
                       placeholder="noc@company.com"
                     />
@@ -643,7 +1293,7 @@ const Settings = () => {
                     <label>Recipients (comma-separated)</label>
                     <input
                       type="text"
-                      value={config.alerts.emailRecipients}
+                      value={config.alerts?.emailRecipients || ''}
                       onChange={(e) => updateSimpleConfig('alerts', 'emailRecipients', e.target.value)}
                       placeholder="admin@company.com, ops@company.com"
                     />
@@ -665,7 +1315,7 @@ const Settings = () => {
                 <div className="config-field">
                   <label>NetFlow Data Retention (days)</label>
                   <select
-                    value={config.retention.netflowDays}
+                    value={config.retention?.netflowDays || 30}
                     onChange={(e) => updateSimpleConfig('retention', 'netflowDays', parseInt(e.target.value))}
                   >
                     <option value={7}>7 days</option>
@@ -678,7 +1328,7 @@ const Settings = () => {
                 <div className="config-field">
                   <label>Syslog Data Retention (days)</label>
                   <select
-                    value={config.retention.syslogDays}
+                    value={config.retention?.syslogDays || 30}
                     onChange={(e) => updateSimpleConfig('retention', 'syslogDays', parseInt(e.target.value))}
                   >
                     <option value={7}>7 days</option>
@@ -691,7 +1341,7 @@ const Settings = () => {
                 <div className="config-field">
                   <label>Metrics Data Retention (days)</label>
                   <select
-                    value={config.retention.metricsDays}
+                    value={config.retention?.metricsDays || 90}
                     onChange={(e) => updateSimpleConfig('retention', 'metricsDays', parseInt(e.target.value))}
                   >
                     <option value={30}>30 days</option>
@@ -704,7 +1354,7 @@ const Settings = () => {
                 <div className="config-field">
                   <label>SNMP Data Retention (days)</label>
                   <select
-                    value={config.retention.snmpDays}
+                    value={config.retention?.snmpDays || 90}
                     onChange={(e) => updateSimpleConfig('retention', 'snmpDays', parseInt(e.target.value))}
                   >
                     <option value={30}>30 days</option>
@@ -730,7 +1380,7 @@ const Settings = () => {
                   <label>Max Concurrent Flows</label>
                   <input
                     type="number"
-                    value={config.performance.maxConcurrentFlows}
+                    value={config.performance?.maxConcurrentFlows || 10000}
                     onChange={(e) => updateSimpleConfig('performance', 'maxConcurrentFlows', parseInt(e.target.value))}
                     min="1000"
                     max="100000"
@@ -740,7 +1390,7 @@ const Settings = () => {
                 <div className="config-field">
                   <label>Buffer Size</label>
                   <select
-                    value={config.performance.bufferSize}
+                    value={config.performance?.bufferSize || '64MB'}
                     onChange={(e) => updateSimpleConfig('performance', 'bufferSize', e.target.value)}
                   >
                     <option value="32MB">32MB</option>
@@ -754,7 +1404,7 @@ const Settings = () => {
                   <label className="toggle-switch">
                     <input
                       type="checkbox"
-                      checked={config.performance.compressionEnabled}
+                      checked={config.performance?.compressionEnabled || true}
                       onChange={(e) => updateSimpleConfig('performance', 'compressionEnabled', e.target.checked)}
                     />
                     <span className="toggle-slider"></span>
@@ -765,7 +1415,7 @@ const Settings = () => {
                   <label className="toggle-switch">
                     <input
                       type="checkbox"
-                      checked={config.performance.indexingEnabled}
+                      checked={config.performance?.indexingEnabled || true}
                       onChange={(e) => updateSimpleConfig('performance', 'indexingEnabled', e.target.checked)}
                     />
                     <span className="toggle-slider"></span>

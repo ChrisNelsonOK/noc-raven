@@ -59,6 +59,15 @@ cat > "$GEN_CONF" <<EOF
     Port          $SYS_PORT
     Parser        syslog-rfc3164-custom
 
+# Fallback parser filter to handle cases where the input plugin parser is not applied
+[FILTER]
+    Name          parser
+    Match         syslog.*
+    Key_Name      message
+    Parser        syslog-rfc3164-custom
+    Reserve_Data  On
+    Preserve_Key  On
+
 [OUTPUT]
     Name          stdout
     Match         *

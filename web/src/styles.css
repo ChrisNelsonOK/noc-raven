@@ -846,6 +846,30 @@ tr:hover {
   }
 }
 
+/* Toasts */
+.toast-container {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9999;
+}
+.toast {
+  min-width: 280px;
+  max-width: 420px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.toast-success { background: #2e7d32; }
+.toast-info { background: #1976d2; }
+.toast-error { background: #c62828; }
+
 /* Loading and Error States */
 .loading {
   display: flex;

@@ -562,16 +562,21 @@ main() {
                 wait_for_vpn
                 start_services
                 
-                # Keep container running and monitor services
+            # Start background monitor and return to terminal menu
+            (
                 while true; do
                     if [[ ! -f "$SERVICE_READY_FILE" ]]; then
                         log_error "Services not ready, attempting restart..."
                         start_services
                     fi
-                    
-                    check_service_health
+                    check_service_health > /dev/null 2>&1 || true
                     sleep 30
                 done
+            ) &
+            log_info "Services started. Returning to terminal menu..."
+            "$NOC_RAVEN_HOME/scripts/terminal-menu.sh" || true
+            log_info "Terminal menu exited. Keeping container alive."
+            sleep infinity
             else
                 log_warn "Configuration was not completed, keeping container alive for debugging"
                 sleep infinity
@@ -598,22 +603,27 @@ main() {
             log_info "Auto-detecting interface mode..."
             
             if check_dhcp_status "$NETWORK_INTERFACE"; then
-                # DHCP is active - start web panel mode
-                log_info "DHCP detected - starting web panel mode"
+                # DHCP is active - start web panel services, then return to terminal menu
+                log_info "DHCP detected - starting services for web panel"
                 setup_vpn
                 wait_for_vpn
                 start_services
                 
-                # Keep container running and monitor services
-                while true; do
-                    if [[ ! -f "$SERVICE_READY_FILE" ]]; then
-                        log_error "Services not ready, attempting restart..."
-                        start_services
-                    fi
-                    
-                    check_service_health
-                    sleep 30
-                done
+                # Start background monitor and show terminal menu
+                (
+                    while true; do
+                        if [[ ! -f "$SERVICE_READY_FILE" ]]; then
+                            log_error "Services not ready, attempting restart..."
+                            start_services
+                        fi
+                        check_service_health > /dev/null 2>&1 || true
+                        sleep 30
+                    done
+                ) &
+                log_info "Services started. Returning to terminal menu..."
+                "$NOC_RAVEN_HOME/scripts/terminal-menu.sh" || true
+                log_info "Terminal menu exited. Keeping container alive."
+                sleep infinity
             else
                 # No DHCP - show terminal menu
                 log_info "No DHCP detected - starting terminal menu"
@@ -626,16 +636,26 @@ main() {
                     wait_for_vpn
                     start_services
                     
-                    # Keep container running and monitor services
-                    while true; do
-                        if [[ ! -f "$SERVICE_READY_FILE" ]]; then
-                            log_error "Services not ready, attempting restart..."
-                            start_services
-                        fi
-                        
-                        check_service_health
-                        sleep 30
-                    done
+                    # Start background monitor and return to terminal menu
+                    (
+                        while true; do
+                            if [[ ! -f "$SERVICE_READY_FILE" ]]; then
+                                log_error "Services not ready, attempting restart..."
+                                start_services
+                            fi
+                            check_service_health > /dev/null 2>&1 || true
+                            sleep 30
+                        done
+                    ) &
+                    log_info "Services started. Returning to terminal menu..."
+                    "$NOC_RAVEN_HOME/scripts/terminal-menu.sh" || true
+                    log_info "Terminal menu exited. Keeping container alive."
+                    sleep infinity
+                else
+                    log_warn "Configuration was not completed, exiting"
+                    exit 1
+                fi
+            fi
                 else
                     log_warn "Configuration was not completed, exiting"
                     exit 1

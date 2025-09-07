@@ -30,6 +30,14 @@
       "port": 8125,
       "protocol": "UDP",
       "bindAddress": "0.0.0.0"
+    },
+    "windows": {
+      "enabled": false,
+      "port": 8085,
+      "protocol": "HTTP",
+      "bindAddress": "0.0.0.0",
+      "format": "json",
+      "bufferSize": 10
     }
   },
   "forwarding": {
@@ -51,8 +59,27 @@
       "enabled": false,
       "targetHost": "",
       "targetPort": 162,
-      "protocol": "UDP",
-      "community": "public"
+      "version": "v2c",
+      "community": "public",
+      "username": "",
+      "authProtocol": "SHA",
+      "authPassword": ""
+    },
+    "sflow": {
+      "enabled": false,
+      "targetHost": "",
+      "targetPort": 6343,
+      "sampleRate": 1000,
+      "agentAddress": "",
+      "version": "5"
+    },
+    "windows": {
+      "enabled": false,
+      "targetHost": "",
+      "targetPort": 8085,
+      "format": "http",
+      "channels": "System,Security,Application",
+      "bufferSize": 10
     },
     "metrics": {
       "enabled": false,

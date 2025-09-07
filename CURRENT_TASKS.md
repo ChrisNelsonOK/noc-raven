@@ -1,6 +1,6 @@
 # 🦅 NoC Raven - Current Development Tasks
 
-**Last Updated:** September 6, 2025 at 1:18 PM CST
+**Last Updated:** September 7, 2025 at 2:36 PM UTC
 **Status:** In Active Development  
 **Version:** 1.0.0-alpha
 
@@ -176,11 +176,16 @@
 
 ## 🎯 Immediate Next Steps
 
+- [x] Add UI toast notifications for settings save and service restart
+- [x] Add E2E restart test (tests/e2e/restart_e2e.sh)
+- [x] Validate nginx routes and config-service behavior end-to-end (including GET /api/system/status)
+
 - [x] Implement Go config-service for persistent /api/config (GET/POST) and /api/services/*/restart
 - [x] Wire nginx -> 5004 and replace static POST with proxy to config-service
+- [x] Disable legacy netcat/simple HTTP API by default (controlled via NOC_RAVEN_ENABLE_SIMPLE_API)
 - [x] Make GoFlow2 ports dynamic from config.json (NetFlow/IPFIX/sFlow)
 - [x] Ensure sFlow visible in UI (integrated under Flow menu) and show configured ports
-- [ ] Verify fluent-bit/goflow2/telegraf restart on relevant port changes
+- [x] Verify fluent-bit/goflow2/telegraf restart on relevant port changes
 - [x] Add unit tests for config-service (validation, atomic write, restart mapping)
 - [ ] E2E tests: save->persist->reload->service port effect
 - [x] Update DEVELOPMENT.md (rules + auth) and SYSTEM_AUDIT.md (status update)

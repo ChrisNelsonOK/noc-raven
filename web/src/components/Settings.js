@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import './Settings.css';
 
-const Settings = () => {
+const Settings = ({ initialTab }) => {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [activeTab, setActiveTab] = useState('collection');
+const [activeTab, setActiveTab] = useState(initialTab || 'collection');
+  const [restarting, setRestarting] = useState({});
 
   // Load configuration on component mount
   useEffect(() => {
@@ -57,7 +58,8 @@ const Settings = () => {
       }
       
       if (result.success) {
-        setSuccess('Configuration saved and applied successfully!');
+setSuccess('✅ Configuration saved and applied successfully!');
+        window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'success', message: 'Configuration saved and applied' } }));
         setTimeout(() => setSuccess(null), 5000);
         
         // Reload configuration to get any server-side changes
@@ -67,7 +69,8 @@ const Settings = () => {
       }
       
     } catch (err) {
-      setError(`Failed to save configuration: ${err.message}`);
+setError(`❌ Failed to save configuration: ${err.message}`);
+      window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'error', message: `Save failed: ${err.message}` } }));
       console.error('Configuration save error:', err);
     } finally {
       setSaving(false);
@@ -77,28 +80,69 @@ const Settings = () => {
   const restartService = async (serviceName) => {
     try {
       setError(null);
+      setRestarting(prev => ({ ...prev, [serviceName]: true }));
       
       const response = await fetch(`/api/services/${serviceName}/restart`, {
         method: 'POST',
       });
       
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || `Restart failed: ${response.status}`);
+      let result = null;
+      try {
+        result = await response.json();
+      } catch (_) {
+        // Non-JSON response (e.g., nginx 404 HTML). Handle below.
       }
       
-      if (result.success) {
-        setSuccess(`Service ${serviceName} restarted successfully!`);
-        setTimeout(() => setSuccess(null), 5000);
-      } else {
-        throw new Error(result.error || `Service ${serviceName} restart failed`);
+      if (!response.ok || (result && result.success === false)) {
+        const msg = result?.message || result?.error || `HTTP ${response.status}`;
+        throw new Error(msg);
       }
+      
+setSuccess(`✅ Service ${serviceName} restarted successfully!`);
+      window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'success', message: `Service ${serviceName} restarted` } }));
+      setTimeout(() => setSuccess(null), 5000);
       
     } catch (err) {
-      setError(`Failed to restart ${serviceName}: ${err.message}`);
+setError(`❌ Failed to restart ${serviceName}: ${err.message}`);
+      window.dispatchEvent(new CustomEvent('toast', { detail: { type: 'error', message: `Restart ${serviceName} failed: ${err.message}` } }));
       console.error('Service restart error:', err);
+    } finally {
+      setRestarting(prev => ({ ...prev, [serviceName]: false }));
     }
+  };
+
+  const restartAllServices = async () => {
+    const services = ['fluent-bit', 'goflow2', 'telegraf', 'vector', 'nginx'];
+    setError(null);
+    setSuccess(null);
+    setRestarting(prev => ({ ...prev, all: true }));
+
+    const results = [];
+    for (const svc of services) {
+      try {
+        const resp = await fetch(`/api/services/${svc}/restart`, { method: 'POST' });
+        let json = null;
+        try { json = await resp.json(); } catch (_) {}
+        if (!resp.ok || (json && json.success === false)) {
+          const msg = json?.message || json?.error || `HTTP ${resp.status}`;
+          results.push(`${svc}: failed (${msg})`);
+        } else {
+          results.push(`${svc}: ok`);
+        }
+      } catch (e) {
+        results.push(`${svc}: error (${e.message})`);
+      }
+    }
+
+    const failed = results.filter(r => !r.includes(': ok'));
+    if (failed.length === 0) {
+      setSuccess('✅ All services restarted successfully');
+      setTimeout(() => setSuccess(null), 5000);
+    } else {
+      setError(`Some restarts failed: ${failed.join('; ')}`);
+    }
+
+    setRestarting(prev => ({ ...prev, all: false }));
   };
 
   const updateConfig = (path, value) => {
@@ -149,7 +193,7 @@ const Settings = () => {
       
       {/* Syslog Settings */}
       <div className="setting-group">
-        <h4>Syslog Collection</h4>
+        <h4>🟡 Syslog Collection</h4>
         <div className="setting-row">
           <label>
             <input
@@ -206,7 +250,7 @@ const Settings = () => {
 
       {/* NetFlow Settings */}
       <div className="setting-group">
-        <h4>NetFlow/IPFIX Collection</h4>
+        <h4>🌐 NetFlow/IPFIX Collection</h4>
         <div className="setting-row">
           <label>
             <input
@@ -241,16 +285,6 @@ const Settings = () => {
         </div>
         <div className="setting-row">
           <label>
-            sFlow Port:
-            <input
-              type="number"
-              value={config.collection?.netflow?.ports?.sflow || 6343}
-              onChange={(e) => updateConfig('collection.netflow.ports.sflow', parseInt(e.target.value))}
-              min="1"
-              max="65535"
-            />
-          </label>
-          <label>
             Cache Size:
             <input
               type="number"
@@ -259,12 +293,80 @@ const Settings = () => {
               min="1000"
             />
           </label>
+          <label>
+            Buffer Size (MB):
+            <input
+              type="number"
+              value={config.collection?.netflow?.buffer_size_mb || 128}
+              onChange={(e) => updateConfig('collection.netflow.buffer_size_mb', parseInt(e.target.value))}
+              min="32"
+              max="1024"
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* sFlow Settings */}
+      <div className="setting-group">
+        <h4>🌊 sFlow Collection</h4>
+        <div className="setting-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={config.collection?.sflow?.enabled || false}
+              onChange={(e) => updateConfig('collection.sflow.enabled', e.target.checked)}
+            />
+            Enable sFlow Collection
+          </label>
+        </div>
+        <div className="setting-row">
+          <label>
+            sFlow Port:
+            <input
+              type="number"
+              value={config.collection?.sflow?.port || 6343}
+              onChange={(e) => updateConfig('collection.sflow.port', parseInt(e.target.value))}
+              min="1"
+              max="65535"
+            />
+          </label>
+          <label>
+            Sample Rate:
+            <input
+              type="number"
+              value={config.collection?.sflow?.sample_rate || 1000}
+              onChange={(e) => updateConfig('collection.sflow.sample_rate', parseInt(e.target.value))}
+              min="100"
+              max="10000"
+            />
+          </label>
+        </div>
+        <div className="setting-row">
+          <label>
+            Agent Address:
+            <input
+              type="text"
+              value={config.collection?.sflow?.agent_address || '0.0.0.0'}
+              onChange={(e) => updateConfig('collection.sflow.agent_address', e.target.value)}
+              placeholder="0.0.0.0"
+            />
+          </label>
+          <label>
+            Max Packet Size:
+            <input
+              type="number"
+              value={config.collection?.sflow?.max_packet_size || 1500}
+              onChange={(e) => updateConfig('collection.sflow.max_packet_size', parseInt(e.target.value))}
+              min="512"
+              max="9000"
+            />
+          </label>
         </div>
       </div>
 
       {/* SNMP Settings */}
       <div className="setting-group">
-        <h4>SNMP Monitoring</h4>
+        <h4>📡 SNMP Monitoring</h4>
         <div className="setting-row">
           <label>
             <input
@@ -338,7 +440,7 @@ const Settings = () => {
 
       {config.forwarding?.destinations?.map((destination, index) => (
         <div key={index} className="setting-group">
-          <h4>Destination {index + 1}: {destination.name}</h4>
+          <h4>🎯 Destination {index + 1}: {destination.name}</h4>
           <div className="setting-row">
             <label>
               Name:
@@ -382,6 +484,28 @@ const Settings = () => {
           </div>
           <div className="setting-row">
             <label>
+              sFlow Port:
+              <input
+                type="number"
+                value={destination.ports?.sflow || 6343}
+                onChange={(e) => updateConfig(`forwarding.destinations.${index}.ports.sflow`, parseInt(e.target.value))}
+                min="1"
+                max="65535"
+              />
+            </label>
+            <label>
+              SNMP Port:
+              <input
+                type="number"
+                value={destination.ports?.snmp || 162}
+                onChange={(e) => updateConfig(`forwarding.destinations.${index}.ports.snmp`, parseInt(e.target.value))}
+                min="1"
+                max="65535"
+              />
+            </label>
+          </div>
+          <div className="setting-row">
+            <label>
               <input
                 type="checkbox"
                 checked={destination.enabled || false}
@@ -410,7 +534,7 @@ const Settings = () => {
       <h3>🚨 Alerts & Notifications</h3>
       
       <div className="setting-group">
-        <h4>System Thresholds</h4>
+        <h4>📊 System Thresholds</h4>
         <div className="setting-row">
           <label>
             CPU Usage Threshold (%):
@@ -457,7 +581,7 @@ const Settings = () => {
       </div>
 
       <div className="setting-group">
-        <h4>Email Notifications</h4>
+        <h4>📧 Email Notifications</h4>
         <div className="setting-row">
           <label>
             <input
@@ -520,7 +644,7 @@ const Settings = () => {
       <h3>🗄️ Data Retention Settings</h3>
       
       <div className="setting-group">
-        <h4>Retention Periods</h4>
+        <h4>⏰ Retention Periods</h4>
         <div className="setting-row">
           <label>
             Syslog Messages (days):
@@ -574,7 +698,7 @@ const Settings = () => {
       <h3>⚡ Performance Settings</h3>
       
       <div className="setting-group">
-        <h4>Buffer & Processing</h4>
+        <h4>⚙️ Buffer & Processing</h4>
         <div className="setting-row">
           <label>
             Buffer Size (MB):
@@ -641,18 +765,134 @@ const Settings = () => {
     </div>
   );
 
+  const renderWindowsSettings = () => (
+    <div className="settings-section">
+      <h3>🪟 Windows Events</h3>
+      <div className="setting-group">
+        <h4>Collector</h4>
+        <div className="setting-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={config.collection?.windows?.enabled || false}
+              onChange={(e) => updateConfig('collection.windows.enabled', e.target.checked)}
+            />
+            Enable Windows Events Collector
+          </label>
+        </div>
+        <div className="setting-row">
+          <label>
+            HTTP Listen Port:
+            <input
+              type="number"
+              value={config.collection?.windows?.port || 8085}
+              onChange={(e) => updateConfig('collection.windows.port', parseInt(e.target.value))}
+              min="1024"
+              max="65535"
+            />
+          </label>
+          <label>
+            Endpoint Path:
+            <input
+              type="text"
+              value={config.collection?.windows?.path || '/ingest/windows'}
+              onChange={(e) => updateConfig('collection.windows.path', e.target.value)}
+            />
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderForwardingWindows = () => (
+    <div className="settings-section">
+      <h3>🪟 Windows Events Forwarding</h3>
+      <div className="setting-group">
+        <div className="setting-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={config.forwarding?.windows?.enabled || false}
+              onChange={(e) => updateConfig('forwarding.windows.enabled', e.target.checked)}
+            />
+            Enable Windows Events Forwarding
+          </label>
+        </div>
+        <div className="setting-row">
+          <label>
+            Protocol:
+            <select
+              value={config.forwarding?.windows?.protocol || 'HTTP'}
+              onChange={(e) => updateConfig('forwarding.windows.protocol', e.target.value)}
+            >
+              <option value="HTTP">HTTP</option>
+              <option value="HTTPS">HTTPS</option>
+            </select>
+          </label>
+          <label>
+            Host:
+            <input
+              type="text"
+value={config.forwarding?.windows?.host || 'obs.rectitude.net'}
+              onChange={(e) => updateConfig('forwarding.windows.host', e.target.value)}
+              placeholder="example.com"
+            />
+          </label>
+        </div>
+        <div className="setting-row">
+          <label>
+            Port:
+            <input
+              type="number"
+              value={config.forwarding?.windows?.port || 443}
+              onChange={(e) => updateConfig('forwarding.windows.port', parseInt(e.target.value))}
+              min="1"
+              max="65535"
+            />
+          </label>
+          <label>
+            Path:
+            <input
+              type="text"
+              value={config.forwarding?.windows?.path || '/api/windows/events'}
+              onChange={(e) => updateConfig('forwarding.windows.path', e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="setting-row">
+          <label>
+            Auth Token (optional):
+            <input
+              type="text"
+              value={config.forwarding?.windows?.token || ''}
+              onChange={(e) => updateConfig('forwarding.windows.token', e.target.value)}
+              placeholder="Bearer token"
+            />
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'collection':
         return renderCollectionSettings();
       case 'forwarding':
-        return renderForwardingSettings();
+        return (
+          <>
+            {renderForwardingSettings()}
+            {renderForwardingWindows()}
+          </>
+        );
       case 'alerts':
         return renderAlertsSettings();
       case 'retention':
         return renderRetentionSettings();
       case 'performance':
         return renderPerformanceSettings();
+      case 'windows':
+        return renderWindowsSettings();
       default:
         return renderCollectionSettings();
     }
@@ -668,14 +908,14 @@ const Settings = () => {
             className="btn-secondary"
             disabled={loading}
           >
-            {loading ? 'Loading...' : 'Reload'}
+            {loading ? '⏳ Loading...' : '🔄 Reload'}
           </button>
           <button
             onClick={saveConfiguration}
             className="btn-primary"
             disabled={saving || !config}
           >
-            {saving ? 'Saving...' : 'Save Configuration'}
+            {saving ? '💾 Saving...' : '💾 Save Configuration'}
           </button>
         </div>
       </div>
@@ -725,6 +965,12 @@ const Settings = () => {
         >
           ⚡ Performance
         </button>
+        <button
+          className={activeTab === 'windows' ? 'tab active' : 'tab'}
+          onClick={() => setActiveTab('windows')}
+        >
+          🪟 Windows Events
+        </button>
       </div>
 
       <div className="settings-content">
@@ -739,36 +985,49 @@ const Settings = () => {
             onClick={() => restartService('fluent-bit')}
             className="btn-service"
             title="Restart Fluent Bit (Syslog Collection)"
+            disabled={restarting['fluent-bit']}
           >
-            Restart Syslog Service
+            {restarting['fluent-bit'] ? '🔄 Restarting...' : '📝 Restart Syslog Service'}
           </button>
           <button
             onClick={() => restartService('goflow2')}
             className="btn-service"
-            title="Restart GoFlow2 (NetFlow Collection)"
+            title="Restart GoFlow2 (NetFlow/IPFIX Collection)"
+            disabled={restarting['goflow2']}
           >
-            Restart NetFlow Service
+            {restarting['goflow2'] ? '🔄 Restarting...' : '🌊 Restart NetFlow Service'}
+          </button>
+          <button
+            onClick={() => restartService('goflow2')}
+            className="btn-service"
+            title="Restart sFlow (GoFlow2) Collection"
+            disabled={restarting['goflow2']}
+          >
+            {restarting['goflow2'] ? '🔄 Restarting...' : '🌀 Restart sFlow Service'}
           </button>
           <button
             onClick={() => restartService('telegraf')}
             className="btn-service"
             title="Restart Telegraf (SNMP Monitoring)"
+            disabled={restarting['telegraf']}
           >
-            Restart SNMP Service
+            {restarting['telegraf'] ? '🔄 Restarting...' : '📡 Restart SNMP Service'}
           </button>
           <button
             onClick={() => restartService('vector')}
             className="btn-service"
-            title="Restart Vector (Data Pipeline)"
+            title="Restart Windows Events"
+            disabled={restarting['vector']}
           >
-            Restart Vector Service
+            {restarting['vector'] ? '🔄 Restarting...' : '🪟 Restart Windows Events'}
           </button>
           <button
-            onClick={() => restartService('all')}
+            onClick={restartAllServices}
             className="btn-service btn-service-all"
             title="Restart All Services"
+            disabled={Object.values(restarting).some(r => r)}
           >
-            Restart All Services
+            {Object.values(restarting).some(r => r) ? '🔄 Restarting...' : '🔄 Restart All Services'}
           </button>
         </div>
       </div>
