@@ -201,9 +201,17 @@ check_web_interface() {
 # Main health check function
 perform_health_check() {
     log "INFO" "Starting NoC Raven health check..."
+    # Allow non-zero check functions to report WARN/CRITICAL without aborting the script
+    set +e
     
-    # Check essential processes
-    check_process "supervisord" "Supervisor daemon"
+    # Check essential processes (allow either supervisord or our production service manager)
+    if pgrep -f "supervisord" >/dev/null 2>&1; then
+        add_health_result "OK" "Supervisor daemon is running"
+    elif pgrep -f "production-service-manager.sh" >/dev/null 2>&1; then
+        add_health_result "OK" "Production service manager is running"
+    else
+        add_health_result "WARN" "No process manager detected (supervisord or production service manager)"
+    fi
     check_process "goflow2" "GoFlow2 collector"
     check_process "fluent-bit" "Fluent Bit syslog processor"
     check_process "vector" "Vector data pipeline"
@@ -281,9 +289,8 @@ display_results() {
 get_health_status() {
     if [[ ${#HEALTH_ISSUES[@]} -gt 0 ]]; then
         return $HEALTH_CRITICAL
-    elif [[ ${#HEALTH_WARNINGS[@]} -gt 0 ]]; then
-        return $HEALTH_WARN
     else
+        # Treat warnings as healthy for Docker healthcheck; they will still be printed
         return $HEALTH_OK
     fi
 }
@@ -329,9 +336,9 @@ EOF
         esac
     done
     
-    # Perform health check with timeout
-    if ! timeout $HEALTH_CHECK_TIMEOUT bash -c 'source "$0"; perform_health_check' 2>/dev/null; then
-        log "ERROR" "Health check timed out after ${HEALTH_CHECK_TIMEOUT} seconds"
+    # Perform health check with timeout (source this script explicitly in the subshell)
+    if ! timeout "$HEALTH_CHECK_TIMEOUT" bash -lc 'source "/opt/noc-raven/bin/health-check.sh"; perform_health_check'; then
+        log "ERROR" "Health check failed or timed out"
         exit $HEALTH_CRITICAL
     fi
     

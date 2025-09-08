@@ -1,0 +1,24 @@
+/* Minimal SNMP styles (placeholder) */
+.snmp-page {}
+.loading {}
+.spinner {}
+.error {}
+.page-header {}
+.last-updated {}
+.snmp-stats {}
+.stat-card {}
+.snmp-grid {}
+.device-list {}
+.device-item {}
+.oid-distribution {}
+.oid-list {}
+.oid-item {}
+.oid-name {}
+.oid-value {}
+.oid-count {}
+.oid-bar {}
+.oid-fill {}
+.recent-polls {}
+.polls-table {}
+.no-data {}
+

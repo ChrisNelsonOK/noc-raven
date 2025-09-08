@@ -1,0 +1,5 @@
+# NoC Raven System Configuration
+system:
+  timezone: America/Chicago
+  configured: true
+  config_date: 2025-09-08T20:50:30+00:00

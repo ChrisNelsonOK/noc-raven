@@ -1,6 +1,8 @@
 # 🦅 NoC Raven - Current Development Tasks
 
-**Last Updated:** September 7, 2025 at 2:36 PM UTC
+Terminal Mode Finalization: COMPLETE (root + CAP_NET_ADMIN, factory reset option, robust YAML parsing); Docs updated; helper scripts and compose added.
+
+**Last Updated:** September 8, 2025 at 1:08 PM UTC
 **Status:** In Active Development  
 **Version:** 1.0.0-alpha
 
@@ -61,6 +63,10 @@
   - Added performance tuning for venue environments
 
 ### 🔄 IN PROGRESS
+- [x] Removed Node backend (web/backend) in favor of Go config-service (canonical API)
+- [x] Removed duplicate/legacy Settings files and standardized Settings component
+- [x] Added Playwright smoke tests and CI workflow (GitHub Actions)
+- [x] Added dev server proxy and app-loaded test hook
 - **OpenVPN Connect Integration** (60% complete)
   - Need to complete .ovpn profile parser and validator
   - Connection monitoring and auto-reconnect logic partially done

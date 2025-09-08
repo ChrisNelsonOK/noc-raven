@@ -1,0 +1,62 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Build Docker image
+        run: |
+          docker build -t noc-raven:test .
+
+      - name: Run container
+        run: |
+          docker run -d --name noc-raven-test \
+            -p 9080:8080 \
+            -p 8084:8084 \
+            -p 2055:2055/udp -p 4739:4739/udp -p 6343:6343/udp \
+            -p 162:162/udp \
+            noc-raven:test
+
+      - name: Wait for container health
+        run: |
+          for i in {1..30}; do \
+            curl -sS http://localhost:9080/health && exit 0; \
+            sleep 2; \
+          done; \
+          echo "Container health check failed" >&2; \
+          docker logs noc-raven-test || true; \
+          exit 1
+
+      - name: Install web dependencies and Playwright
+        working-directory: web
+        run: |
+          npm ci
+          npx playwright install --with-deps
+
+      - name: Run Playwright smoke tests
+        working-directory: web
+        env:
+          BASE_URL: http://localhost:9080
+        run: npm run test:e2e
+
+      - name: Cleanup container
+        if: always()
+        run: |
+          docker logs noc-raven-test || true
+          docker rm -f noc-raven-test || true
+

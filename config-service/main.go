@@ -74,7 +74,6 @@ func writeJSONConfig(newCfg Config) error {
 	// backup existing
 	if _, err := os.Stat(configPath); err == nil {
 		stamp := time.Now().Format("20060102_150405")
-		_ = os.CopyFS // noop to keep imports tidy
 		backupFile := filepath.Join(backupDir, fmt.Sprintf("config_%s.json", stamp))
 		if err := copyFile(configPath, backupFile); err != nil {
 			logf("backup failed: %v", err)
@@ -313,6 +312,18 @@ func handlePostConfig(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`{"success": true, "message": "Configuration saved and applied"}`))
 }
 
+func canonicalServiceName(name string) string {
+	// Accept friendly aliases and normalize to supervisor names
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "windows", "windows-events", "windows_events", "wevents", "win-events", "win_events":
+		return "vector"
+	case "syslog", "fluentbit", "fluent_bit":
+		return "fluent-bit"
+	default:
+		return name
+	}
+}
+
 func handleRestartService(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	// path format: /api/services/{name}/restart
@@ -321,7 +332,7 @@ func handleRestartService(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"success": false, "message": "invalid path"}`, http.StatusBadRequest)
 		return
 	}
-	name := string(parts[2])
+	name := canonicalServiceName(string(parts[2]))
 	if err := restartSvc(name); err != nil {
 		http.Error(w, fmt.Sprintf(`{"success": false, "message": "restart failed: %v"}`, err), http.StatusInternalServerError)
 		return
@@ -330,10 +341,37 @@ func handleRestartService(w http.ResponseWriter, r *http.Request) {
 }
 
 // newMux builds the HTTP routes (exported for tests)
+func handleListServices(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	// Advertise the canonical service names UI/clients should use
+	services := []string{"fluent-bit", "goflow2", "telegraf", "vector", "nginx"}
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"services": services,
+		"aliases": map[string]string{
+			"windows":         "vector",
+			"windows-events":  "vector",
+			"windows_events":  "vector",
+			"wevents":         "vector",
+			"win-events":      "vector",
+			"win_events":      "vector",
+			"syslog":          "fluent-bit",
+			"fluentbit":       "fluent-bit",
+			"fluent_bit":      "fluent-bit",
+		},
+	})
+}
+
 func newMux() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", handleHealth)
 	mux.HandleFunc("/api/system/status", handleSystemStatus)
+	mux.HandleFunc("/api/services", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			handleListServices(w, r)
+			return
+		}
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	})
 	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
 		// Allow CORS preflight without auth
 		if r.Method == http.MethodOptions {

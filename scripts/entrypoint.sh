@@ -358,8 +358,8 @@ start_services() {
     
     # Use supervisor only if running as root, otherwise start manually
     if [[ "$(id -u)" == "0" ]] && command -v supervisord >/dev/null 2>&1; then
-        log_info "Starting services via Supervisor..."
-        supervisord -c /etc/supervisord.conf
+        log_info "Starting services via Supervisor (background)..."
+        nohup supervisord -c /etc/supervisord.conf >> "$LOG_DIR/supervisord.log" 2>&1 &
         
         # Wait for supervisor to start
         sleep 5
@@ -374,13 +374,17 @@ start_services() {
             fi
         done
     else
-        log_info "Starting services with production service manager v2.0..."
+        log_info "Starting services with production service manager v2.0 (background)..."
         # Make production service manager executable
         chmod +x "$NOC_RAVEN_HOME/scripts/production-service-manager.sh" 2>/dev/null || true
         chmod +x "$NOC_RAVEN_HOME/scripts/start-goflow2-production.sh" 2>/dev/null || true
         
-        # Start the production service manager
-        exec "$NOC_RAVEN_HOME/scripts/production-service-manager.sh"
+        # Start the production service manager in background, log to file, and do NOT replace this shell
+        local sm_log="$LOG_DIR/service-manager.log"
+        nohup "$NOC_RAVEN_HOME/scripts/production-service-manager.sh" >> "$sm_log" 2>&1 &
+        local sm_pid=$!
+        echo "$sm_pid" > /tmp/service-manager.pid
+        log_info "Production service manager started (PID: $sm_pid); logging to $sm_log"
     fi
     
     # Create API files for web interface
@@ -595,7 +599,8 @@ main() {
                     start_services
                 fi
                 
-                check_service_health
+                # Do not let a transient health failure kill the container in web mode
+                check_service_health > /dev/null 2>&1 || true
                 sleep 30
             done
             ;;
@@ -651,11 +656,6 @@ main() {
                     "$NOC_RAVEN_HOME/scripts/terminal-menu.sh" || true
                     log_info "Terminal menu exited. Keeping container alive."
                     sleep infinity
-                else
-                    log_warn "Configuration was not completed, exiting"
-                    exit 1
-                fi
-            fi
                 else
                     log_warn "Configuration was not completed, exiting"
                     exit 1

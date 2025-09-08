@@ -42,27 +42,64 @@ DNS_SERVERS="8.8.8.8,8.8.4.4"
 HOSTNAME="noc-raven-001"
 TIMEZONE="UTC"
 
+# Capability detection (NET_ADMIN required for ip/route)
+has_cap_net_admin() {
+    # CAP_NET_ADMIN is bit 12
+    local cap_hex=$(awk '/CapEff/{print $2}' /proc/self/status 2>/dev/null || echo "")
+    if [[ -z "$cap_hex" ]]; then return 1; fi
+    local cap_dec=$((16#$cap_hex))
+    local bit=$((1<<12))
+    if (( (cap_dec & bit) != 0 )); then return 0; else return 1; fi
+}
+
 # Load existing configuration if available
 load_config() {
+    # Reset to defaults first (only if unset) to avoid stale values
+    INTERFACE=${INTERFACE:-eth0}
+    USE_DHCP=${USE_DHCP:-true}
+    STATIC_IP=${STATIC_IP:-}
+    NETMASK=${NETMASK:-255.255.255.0}
+    GATEWAY=${GATEWAY:-}
+    DNS_SERVERS=${DNS_SERVERS:-8.8.8.8,8.8.4.4}
+    HOSTNAME=${HOSTNAME:-noc-raven-001}
+    TIMEZONE=${TIMEZONE:-UTC}
+
     if [[ -f "$NETWORK_CONFIG" ]]; then
-        # Parse YAML configuration (simple parsing)
-        while IFS=': ' read -r key value; do
-            case "$key" in
-                "  interface") INTERFACE="$value" ;;
-                "  dhcp") USE_DHCP="$value" ;;
-                "  static_ip") STATIC_IP="$value" ;;
-                "  netmask") NETMASK="$value" ;;
-                "  gateway") GATEWAY="$value" ;;
-                "  dns") DNS_SERVERS="${value//[\[\]]/}" ;;
-                "  hostname") HOSTNAME="$value" ;;
+        # Robust, indentation-agnostic parsing of common keys under 'network:'
+        while IFS= read -r line; do
+            case "$line" in
+                *"interface:"*)
+                    INTERFACE=$(echo "$line" | sed -E 's/.*interface:[[:space:]]*//')
+                    ;;
+                *"dhcp:"*)
+                    USE_DHCP=$(echo "$line" | sed -E 's/.*dhcp:[[:space:]]*//')
+                    ;;
+                *"static_ip:"*)
+                    STATIC_IP=$(echo "$line" | sed -E 's/.*static_ip:[[:space:]]*//')
+                    ;;
+                *"netmask:"*)
+                    NETMASK=$(echo "$line" | sed -E 's/.*netmask:[[:space:]]*//')
+                    ;;
+                *"gateway:"*)
+                    GATEWAY=$(echo "$line" | sed -E 's/.*gateway:[[:space:]]*//')
+                    ;;
+                *"dns:"*)
+                    # Extract inside brackets if present, remove spaces
+                    DNS_SERVERS=$(echo "$line" | sed -E 's/.*dns:[[:space:]]*\[?([^\]]*)\]?/\1/' | tr -d ' ')
+                    ;;
+                *"hostname:"*)
+                    HOSTNAME=$(echo "$line" | sed -E 's/.*hostname:[[:space:]]*//')
+                    ;;
             esac
         done < "$NETWORK_CONFIG"
     fi
     
     if [[ -f "$SYSTEM_CONFIG" ]]; then
-        while IFS=': ' read -r key value; do
-            case "$key" in
-                "  timezone") TIMEZONE="$value" ;;
+        while IFS= read -r line; do
+            case "$line" in
+                *"timezone:"*)
+                    TIMEZONE=$(echo "$line" | sed -E 's/.*timezone:[[:space:]]*//')
+                    ;;
             esac
         done < "$SYSTEM_CONFIG"
     fi
@@ -209,6 +246,7 @@ show_menu() {
         "5. Test Network Connectivity"
         "6. Apply Configuration & Continue"
         "7. Exit to Shell"
+        "8. Reset Saved Configuration (Factory Defaults)"
     )
     
     printf "${WHITE}${BOLD}┌─────────── NoC Raven Configuration Menu ───────────┐${RESET}\n"
@@ -385,7 +423,43 @@ test_connectivity() {
     printf "${WHITE}${BOLD}╔═════════════════════════════════════════╗\n"
     printf "║         Network Connectivity Test       ║\n"
     printf "╚═════════════════════════════════════════╝${RESET}\n\n"
-    
+
+    # First: local listener checks (inside container)
+    echo -e "${CYAN}Local listener checks:${RESET}"
+    declare -a listeners=(
+        "UDP 514|ss -uln | grep -q ':514 '")
+    listeners+=("UDP 2055|ss -uln | grep -q ':2055 '")
+    listeners+=("UDP 4739|ss -uln | grep -q ':4739 '")
+    listeners+=("UDP 6343|ss -uln | grep -q ':6343 '")
+    listeners+=("UDP 162|ss -uln | grep -q ':162 '")
+    listeners+=("TCP 8080|ss -tln | grep -q ':8080 '")
+    listeners+=("TCP 8084|ss -tln | grep -q ':8084 '")
+
+    for t in "${listeners[@]}"; do
+        local lname="${t%|*}"
+        local lcmd="${t#*|}"
+        printf "${CYAN}Listening ${lname}...${RESET} "
+        if bash -c "$lcmd" >/dev/null 2>&1; then
+            printf "${GREEN}${BOLD}✓ LISTENING${RESET}\n"
+        else
+            printf "${RED}${BOLD}✗ NOT LISTENING${RESET}\n"
+        fi
+        sleep 0.3
+    done
+
+    echo
+    # Second: remote reachability via VPN (skip if VPN not up)
+    local have_vpn=false
+    if pgrep -f openvpn >/dev/null 2>&1 || ip link show tun0 >/dev/null 2>&1; then
+        have_vpn=true
+    fi
+    if [[ "$have_vpn" != "true" ]]; then
+        echo -e "${YELLOW}VPN not connected; skipping remote reachability tests.${RESET}\n"
+        printf "${YELLOW}Press Enter to continue...${RESET}"
+        read
+        return
+    fi
+
     local tests=(
         "DNS Resolution|nslookup obs.rectitude.net"
         "Ping Test|ping -c 3 obs.rectitude.net"
@@ -431,16 +505,24 @@ apply_configuration() {
     
     # Set hostname
     if command -v hostname >/dev/null 2>&1; then
-        hostname "$HOSTNAME" 2>/dev/null || true
-        printf "${GREEN}✓ Hostname set to $HOSTNAME${RESET}\n"
+        if [[ $EUID -eq 0 ]]; then
+            hostname "$HOSTNAME" 2>/dev/null || printf "${YELLOW}⚠ Could not set hostname${RESET}\n"
+            printf "${GREEN}✓ Hostname set to $HOSTNAME${RESET}\n"
+        else
+            printf "${YELLOW}⚠ Hostname change skipped (not running as root)${RESET}\n"
+        fi
         sleep 1
     fi
     
     # Set timezone (handle permissions gracefully)
     if [[ -f "/usr/share/zoneinfo/$TIMEZONE" ]]; then
-        ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime 2>/dev/null || printf "${YELLOW}⚠ Could not set system timezone (insufficient permissions)${RESET}\n"
-        echo "$TIMEZONE" > /etc/timezone 2>/dev/null || printf "${YELLOW}⚠ Could not write timezone file (insufficient permissions)${RESET}\n"
-        printf "${GREEN}✓ Timezone set to $TIMEZONE${RESET}\n"
+        if [[ $EUID -eq 0 ]]; then
+            ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime 2>/dev/null || printf "${YELLOW}⚠ Could not set system timezone${RESET}\n"
+            echo "$TIMEZONE" > /etc/timezone 2>/dev/null || printf "${YELLOW}⚠ Could not write timezone file${RESET}\n"
+            printf "${GREEN}✓ Timezone set to $TIMEZONE${RESET}\n"
+        else
+            printf "${YELLOW}⚠ Timezone change skipped (not running as root)${RESET}\n"
+        fi
         sleep 1
     fi
     
@@ -448,7 +530,11 @@ apply_configuration() {
     if [[ "$USE_DHCP" == "true" ]]; then
         printf "${CYAN}Enabling DHCP on $INTERFACE...${RESET}\n"
         if command -v dhcpcd >/dev/null 2>&1; then
-            dhcpcd "$INTERFACE" 2>/dev/null || true
+            if has_cap_net_admin; then
+                dhcpcd "$INTERFACE" 2>/dev/null || true
+            else
+                printf "${YELLOW}⚠ Skipping DHCP apply (missing CAP_NET_ADMIN). Settings saved.${RESET}\n"
+            fi
         fi
     else
         printf "${CYAN}Configuring static IP $STATIC_IP on $INTERFACE...${RESET}\n"
@@ -467,25 +553,29 @@ apply_configuration() {
             "255.255.255.252") cidr="30" ;;
         esac
         
-        # Apply network configuration
-        ip addr flush dev "$INTERFACE" 2>/dev/null || true
-        ip addr add "$STATIC_IP/$cidr" dev "$INTERFACE" 2>/dev/null || printf "${YELLOW}⚠ Could not set IP (insufficient permissions)${RESET}\n"
-        ip link set dev "$INTERFACE" up 2>/dev/null || true
-        
-        if [[ -n "$GATEWAY" ]]; then
-            ip route del default 2>/dev/null || true
-            ip route add default via "$GATEWAY" 2>/dev/null || printf "${YELLOW}⚠ Could not set gateway (insufficient permissions)${RESET}\n"
-        fi
-        
-        # Update DNS if we have access
-        if [[ -w /etc/resolv.conf ]]; then
-            echo "# Generated by NoC Raven" > /etc/resolv.conf
-            for dns in ${DNS_SERVERS//,/ }; do
-                echo "nameserver $dns" >> /etc/resolv.conf
-            done
+        if has_cap_net_admin; then
+            # Apply network configuration
+            ip addr flush dev "$INTERFACE" 2>/dev/null || true
+            ip addr add "$STATIC_IP/$cidr" dev "$INTERFACE" 2>/dev/null || printf "${YELLOW}⚠ Could not set IP${RESET}\n"
+            ip link set dev "$INTERFACE" up 2>/dev/null || true
+            
+            if [[ -n "$GATEWAY" ]]; then
+                ip route del default 2>/dev/null || true
+                ip route add default via "$GATEWAY" 2>/dev/null || printf "${YELLOW}⚠ Could not set gateway${RESET}\n"
+            fi
+            
+            # Update DNS if we have access
+            if [[ -w /etc/resolv.conf ]]; then
+                echo "# Generated by NoC Raven" > /etc/resolv.conf
+                for dns in ${DNS_SERVERS//,/ }; do
+                    echo "nameserver $dns" >> /etc/resolv.conf
+                done
+            fi
+            printf "${GREEN}✓ Network configuration applied${RESET}\n"
+        else
+            printf "${YELLOW}⚠ Skipping IP/gateway apply (missing CAP_NET_ADMIN). Settings saved and will apply on next run when container has --cap-add NET_ADMIN.${RESET}\n"
         fi
     fi
-    printf "${GREEN}✓ Network configuration applied${RESET}\n"
     sleep 1
     
     printf "\n${GREEN}${BOLD}🎉 Configuration completed successfully!${RESET}\n"
@@ -508,6 +598,8 @@ main() {
     load_config
     
     while true; do
+        # Re-load on each loop so the UI reflects the latest saved values
+        load_config
         printf "${CLEAR}${HOME}"
         show_banner
         printf "\n"  # Extra spacing
@@ -536,6 +628,13 @@ main() {
             7) 
                 printf "${GREEN}Exiting to shell...${RESET}\n"
                 exit 0
+                ;;
+            8)
+                printf "${YELLOW}${BOLD}Resetting saved configuration to factory defaults...${RESET}\n"
+                rm -f "$NETWORK_CONFIG" "$SYSTEM_CONFIG" 2>/dev/null || true
+                sleep 1
+                printf "${GREEN}✓ Saved configuration cleared. Defaults will be used until you save new values.${RESET}\n"
+                sleep 1
                 ;;
             *)
                 printf "${RED}Invalid option. Please try again.${RESET}\n"

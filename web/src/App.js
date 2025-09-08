@@ -1,23 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import './styles.css';
 import Settings from './components/Settings';
+import DashboardComp from './components/Dashboard';
+import NetFlowComp from './components/NetFlow';
+import SyslogComp from './components/Syslog';
+import SNMPComp from './components/SNMP';
+import MetricsComp from './components/Metrics';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 
-// Simple routing implementation
-const Router = ({ children }) => children;
-const Route = ({ path, element, children }) => {
-  const currentPath = window.location.hash.slice(1) || '/';
-  if (path === currentPath) {
-    return element || children;
-  }
-  return null;
-};
+// Routing powered by React Router (BrowserRouter provided in index.js)
 
-const useNavigate = () => {
-  return (path) => {
-    window.location.hash = path;
-    window.dispatchEvent(new Event('hashchange'));
-  };
-};
 
 // Toast system
 const ToastContainer = () => {
@@ -527,16 +519,25 @@ const Metrics = () => {
 
 // Main App Component
 const App = () => {
-  const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || '/');
+  const location = useLocation();
+  const currentPath = location.pathname || '/';
   const navigate = useNavigate();
 
+  const [status, setStatus] = useState(null);
   useEffect(() => {
-    const handleHashChange = () => {
-      setCurrentPath(window.location.hash.slice(1) || '/');
+    let cancelled = false;
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch('/api/system/status');
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) setStatus(data);
+        }
+      } catch (_) {}
     };
-    
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    fetchStatus();
+    const t = setInterval(fetchStatus, 5000);
+    return () => { cancelled = true; clearInterval(t); };
   }, []);
 
   const menuItems = [
@@ -550,7 +551,7 @@ const App = () => {
   ];
 
 return (
-    <div className="app">
+    <div className="app" data-testid="app-loaded">
       <ToastContainer />
       <div className="sidebar">
         <div className="sidebar-header">
@@ -572,15 +573,16 @@ return (
       </div>
 
       <div className="main-content">
-        <Router>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/flows" element={<NetFlow />} />
-          <Route path="/syslog" element={<Syslog />} />
-          <Route path="/snmp" element={<SNMP />} />
-          <Route path="/metrics" element={<Metrics />} />
+        <Routes>
+          <Route path="/" element={<DashboardComp systemStatus={status || {}} />} />
+          <Route path="/flows" element={<NetFlowComp />} />
+          <Route path="/syslog" element={<SyslogComp />} />
+          <Route path="/snmp" element={<SNMPComp />} />
+          <Route path="/metrics" element={<MetricsComp />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/windows" element={<Settings initialTab="windows" />} />
-        </Router>
+          <Route path="*" element={<DashboardComp systemStatus={status || {}} />} />
+        </Routes>
       </div>
     </div>
   );

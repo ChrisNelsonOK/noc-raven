@@ -1,4 +1,5 @@
 # 🦅 NoC Raven - Production Telemetry Collection & Forwarding Appliance
+# DEPRECATED: Use the canonical Dockerfile in the project root for builds.
 # Complete production deployment with full backend API integration
 # Built for true production environments with comprehensive monitoring and control
 

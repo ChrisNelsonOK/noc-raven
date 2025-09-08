@@ -13,31 +13,30 @@ Core services
 
 Quick start
 1) Build the image
-   DOCKER_BUILDKIT=1 docker build -t rectitude369/noc-raven:1.0.0 --build-arg BUILD_DATE=$(date -Iseconds) .
+   DOCKER_BUILDKIT=1 docker build -t noc-raven:test .
 
-2) Run the appliance (web mode)
-   # If standard ports are free on your host
+2) Terminal mode (first-time configuration)
+   ./scripts/run-terminal.sh
+   # Attaching to the menu (detach: Ctrl-p Ctrl-q)
+   docker attach noc-raven-term
+
+   Notes:
+   - Terminal mode uses root + CAP_NET_ADMIN so hostname/timezone/IP/gateway can be applied inside the container.
+   - Settings are persisted under ./\.noc-raven-config (bind-mounted to /config).
+
+3) Web/Auto mode
+   ./scripts/run-web.sh
+   # Open the UI:
+   http://localhost:9080
+
+   Alternative direct docker run (web):
    docker run -d --name noc-raven \
      -p 9080:8080 \
      -p 8084:8084 \
      -p 2055:2055/udp -p 4739:4739/udp -p 6343:6343/udp \
      -p 162:162/udp \
      -v noc-raven-data:/data -v noc-raven-config:/config \
-     rectitude369/noc-raven:1.0.0 --mode=web
-
-   # Optional (debugging only): expose internal config-service directly
-   # -p 5004:5004  # not recommended for production (use /api via 8080)
-
-   # If you have port conflicts, map alternative host ports (example)
-   docker run -d --name noc-raven \
-     -p 19080:8080 \
-     -p 12055:2055/udp -p 14739:4739/udp -p 16343:6343/udp \
-     -p 10162:162/udp \
-     -v noc-raven-data:/data -v noc-raven-config:/config \
-     rectitude369/noc-raven:1.0.0 --mode=web
-
-3) Open the web UI
-   http://localhost:9080   (or the host port you mapped)
+     noc-raven:test --mode=web
 
 Default ports (inside the container)
 - Web UI: 8080/tcp (expose on host)
@@ -72,12 +71,20 @@ Health
 - Vector health: internal http://localhost:8084/health
 
 Production image tag
+- Canonical Dockerfile for builds: Dockerfile (see docs/DOCKERFILES.md)
+- Deprecated: Dockerfile.web (reference only)
+- Legacy: Dockerfile.production (if present)
 - rectitude369/noc-raven:1.0.0
+
+Recent changes
+- Node backend removed in favor of Go config-service (canonical API behind Nginx /api)
+- React Router enabled; dev server proxies /api to container for local development
+- Added Playwright smoke tests and CI workflow for basic end-to-end validation
 
 Release notes and validation
 - See docs/FINAL_VALIDATION.md and docs/RELEASE_NOTES_v1.0.0.md for details.
 
-Optional API authentication
+Optional API authentication (disabled by default)
 - You can protect the Config API with a static API key. By default, auth is disabled.
 - For this beta (v.90-beta), API auth is intentionally disabled (no key is set in the container).
 - To enable later, set an env var when running the container: NOC_RAVEN_API_KEY=<your-key>

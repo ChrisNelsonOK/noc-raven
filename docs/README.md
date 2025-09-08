@@ -61,6 +61,23 @@ NoC Raven is designed for deployment in high-volume network environments with th
 
 ## 🚀 Quick Start
 
+### Terminal Mode (for DHCP-less setups)
+- Use the terminal menu to configure interface, static IP, hostname, and timezone.
+- Recommended on Linux hosts or for initial configuration in lab environments.
+
+Run with helper script:
+- ./scripts/run-terminal.sh
+- Attach: docker attach noc-raven-term (detach: Ctrl-p Ctrl-q)
+
+### Web/Auto Mode (DHCP available)
+- When DHCP is active, the web admin becomes available.
+- Run: ./scripts/run-web.sh
+- Open: http://localhost:9080
+
+Networking note (macOS/Windows vs Linux)
+- On macOS/Windows, Docker runs containers behind a VM. The static IP set inside the container is not L2-reachable from your LAN (no ARP/ping). Use host IP + published ports instead (e.g., NetFlow: host:2055/udp, Syslog: host:514/udp).
+- On Linux, you can use macvlan if you want the appliance to have its own LAN IP, or use --network host to share the host stack.
+
 ### Prerequisites
 - Docker Engine 20.10+
 - Docker Compose 2.0+
@@ -158,6 +175,13 @@ Activated when **no DHCP lease** is detected:
 - Technology-themed graphics and animations
 
 ### Web Control Panel
+
+Quick start scripts
+- Terminal mode: ./scripts/run-terminal.sh
+- Web/Auto mode: ./scripts/run-web.sh
+
+Docker Compose (Terminal mode)
+- See compose.yaml in the project root for a pre-configured terminal-mode service with root + CAP_NET_ADMIN and persistent volumes.
 ![Web Control Panel](docs/images/web-panel.png)
 
 Available when **DHCP is active**:
