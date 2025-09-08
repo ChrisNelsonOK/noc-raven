@@ -1,0 +1,20 @@
+.app {
+  display: flex;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
+  color: #ffffff;
+}
+
+.main-content {
+  flex: 1;
+  padding: 20px;
+  margin-left: 250px; /* Account for sidebar navigation */
+  transition: margin-left 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+    padding: 10px;
+  }
+}

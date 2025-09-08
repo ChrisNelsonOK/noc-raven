@@ -1,0 +1,27 @@
+services:
+  noc-raven:
+    build: .
+    image: noc-raven:test
+    container_name: noc-raven
+    user: "0:0"
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "9080:8080"
+      - "8084:8084"
+      - "2055:2055/udp"
+      - "4739:4739/udp"
+      - "6343:6343/udp"
+      - "162:162/udp"
+    volumes:
+      - type: bind
+        source: ./.noc-raven-config
+        target: /config
+      - type: bind
+        source: ./.noc-raven-data
+        target: /data
+      - type: bind
+        source: ./.noc-raven-logs
+        target: /var/log/noc-raven
+    command: ["--mode=terminal"]
+

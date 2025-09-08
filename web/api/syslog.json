@@ -1,0 +1,9 @@
+{
+  "logs": [
+    {"timestamp": "2024-09-04T16:35:30Z", "host": "firewall-01", "facility": "security", "severity": "warning", "message": "Failed login attempt from 192.168.1.99"},
+    {"timestamp": "2024-09-04T16:35:28Z", "host": "switch-core", "facility": "daemon", "severity": "info", "message": "Interface GigabitEthernet1/0/1 link up"},
+    {"timestamp": "2024-09-04T16:35:25Z", "host": "router-edge", "facility": "kernel", "severity": "error", "message": "BGP session to 10.1.1.1 down"}
+  ],
+  "total_logs": 8934,
+  "log_levels": {"error": 12, "warning": 45, "info": 234, "debug": 67}
+}

@@ -1,0 +1,44 @@
+name: Docker Image Build
+
+on:
+  push:
+    paths:
+      - 'Dockerfile'
+      - 'config/**'
+      - 'scripts/**'
+      - 'services/**'
+      - 'web/**'
+      - 'config-service/**'
+      - '.github/workflows/docker-image.yml'
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - 'config/**'
+      - 'scripts/**'
+      - 'services/**'
+      - 'web/**'
+      - 'config-service/**'
+      - '.github/workflows/docker-image.yml'
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        run: |
+          docker build -t noc-raven:test .
+
+      - name: Verify binary presence
+        run: |
+          cid=$(docker create noc-raven:test)
+          docker cp $cid:/opt/noc-raven/bin/config-service ./config-service
+          docker rm -v $cid
+          test -x ./config-service
+

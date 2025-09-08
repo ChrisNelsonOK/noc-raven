@@ -1,0 +1,52 @@
+/* Flow page styling */
+.flow-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0 4px;
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toggle-label {
+  font-weight: 600;
+  color: #888;
+  margin-right: 4px;
+}
+.toggle-btn {
+  padding: 6px 12px;
+  border-radius: 16px;
+  border: 1px solid #444;
+  background: #111;
+  color: #ddd;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+.toggle-btn:hover { border-color: #777; color: #fff; }
+.toggle-btn.active {
+  background: linear-gradient(90deg, #2563eb 0%, #10b981 100%);
+  border-color: transparent;
+  color: white;
+}
+.ports-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ports-label {
+  font-weight: 600;
+  color: #888;
+  margin-right: 2px;
+}
+.port-chip {
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+

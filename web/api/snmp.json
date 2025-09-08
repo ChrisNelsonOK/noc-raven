@@ -1,0 +1,8 @@
+{
+  "devices": [
+    {"ip": "192.168.1.1", "hostname": "router-edge", "uptime": "45 days, 12:34:56", "interfaces": [{"name": "GigabitEthernet0/0", "status": "up", "in_octets": 2847563421, "out_octets": 1934856734}]},
+    {"ip": "192.168.1.10", "hostname": "switch-core", "uptime": "23 days, 08:15:42", "interfaces": [{"name": "FastEthernet1/0/1", "status": "up", "in_octets": 847563421, "out_octets": 534856734}]}
+  ],
+  "total_devices": 12,
+  "device_status": {"online": 11, "offline": 1, "warning": 2}
+}

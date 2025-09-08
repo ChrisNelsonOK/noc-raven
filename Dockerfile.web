@@ -1,0 +1,97 @@
+# 🦅 NoC Raven - Telemetry Collection & Forwarding Appliance
+# Web mode Dockerfile with pre-installed config service
+# Based on production image
+# DEPRECATED: Prefer the main Dockerfile for builds. This file is retained for reference/testing only.
+
+# Start with the production image
+FROM rectitude369/noc-raven:latest
+
+# Switch to root to make changes
+USER root
+
+# Copy additional services
+COPY config-service/config-service.linux-arm64 /opt/noc-raven/bin/config-service
+RUN chmod +x /opt/noc-raven/bin/config-service
+
+# Create service restart handler
+RUN cat > /opt/noc-raven/scripts/service-restart-handler.sh << 'EOF' \
+    && chmod +x /opt/noc-raven/scripts/service-restart-handler.sh
+#!/bin/sh
+# Service restart handler - called by netcat for each request
+
+read request_line
+read header
+while [ "$header" != "" ]; do
+  read header
+done
+
+# Extract method and path
+method=$(echo "$request_line" | cut -d" " -f1)
+path=$(echo "$request_line" | cut -d" " -f2)
+
+if [ "$method" = "POST" ] && echo "$path" | grep -q "^/api/services/[^/]+/restart$"; then
+  service=$(echo "$path" | sed "s|^/api/services/\([^/]*\)/restart$|\1|g")
+  
+  # Send HTTP response headers
+  echo "HTTP/1.1 200 OK"
+  echo "Content-Type: application/json"
+  echo "Access-Control-Allow-Origin: *"
+  echo "Access-Control-Allow-Methods: GET, POST, OPTIONS"
+  echo "Access-Control-Allow-Headers: Content-Type, Authorization"
+  echo ""
+  
+  # Try to restart service
+  if /opt/noc-raven/scripts/production-service-manager.sh restart "$service" >/dev/null 2>&1; then
+    echo "{\"success\": true, \"message\": \"Service $service restarted successfully\"}"
+  else
+    echo "{\"success\": false, \"error\": \"Failed to restart $service\"}"
+  fi
+else
+  # Invalid request
+  echo "HTTP/1.1 400 Bad Request"
+  echo "Content-Type: application/json"
+  echo "Access-Control-Allow-Origin: *"
+  echo ""
+  echo "{\"success\": false, \"error\": \"Invalid request\"}"
+fi
+EOF
+
+# Create web service startup script
+RUN cat > /opt/noc-raven/scripts/start-web-services.sh << 'EOF' \
+    && chmod +x /opt/noc-raven/scripts/start-web-services.sh
+#!/bin/sh
+# Start web mode services
+
+echo "Starting web services..."
+
+# Initialize log files
+mkdir -p /var/log/noc-raven
+touch /var/log/noc-raven/web-services.log
+
+# Start service restart handler
+# Mark config as complete for web mode
+echo "config_complete=true" > /tmp/config-complete
+
+# Create specific log files
+touch /var/log/noc-raven/restart-handler.log
+touch /var/log/noc-raven/config-service.log
+
+# Start restart handler service
+nc -l -p 5001 -e /opt/noc-raven/scripts/service-restart-handler.sh > /var/log/noc-raven/restart-handler.log 2>&1 &
+RESTART_PID=$!
+echo $RESTART_PID > /tmp/restart-handler.pid
+
+# Start config service
+cd /opt/noc-raven && ./bin/config-service --port 5004 --api-prefix /api > /var/log/noc-raven/config-service.log 2>&1 &
+CONFIG_PID=$!
+echo $CONFIG_PID > /tmp/config-service.pid
+
+# Display logs
+exec tail -f /var/log/noc-raven/web-services.log /var/log/noc-raven/restart-handler.log /var/log/noc-raven/config-service.log
+EOF
+
+# Switch back to nocraven user
+USER nocraven
+
+# Set entrypoint to start web services
+ENTRYPOINT ["/opt/noc-raven/scripts/start-web-services.sh"]

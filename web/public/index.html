@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦅 NoC Raven - Telemetry Control Panel</title>
+    <meta name="description" content="NoC Raven - High-performance telemetry collection and forwarding appliance">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
+            color: #ffffff;
+        }
+        #loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-size: 18px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-right: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div id="loading">
+            <div class="spinner"></div>
+            <span>Loading NoC Raven Control Panel...</span>
+        </div>
+    </div>
+  <script>
+    // SPA routing: ensure base path works with BrowserRouter
+    (function() {
+      // No-op placeholder; Nginx serves index.html for unknown routes
+    })();
+  </script>
+</body>
+</html>
