@@ -327,6 +327,12 @@ setup_vpn() {
         log_warn "VPN setup skipped in web mode"
         return 0
     fi
+
+    # Skip VPN setup in container environments for web panel deployments
+    if is_container && [[ "${1:-}" != "terminal" ]]; then
+        log_warn "VPN setup skipped in container web deployment"
+        return 0
+    fi
     
     log_info "Setting up VPN configuration..."
     
@@ -373,10 +379,16 @@ setup_vpn() {
 wait_for_vpn() {
     local max_wait=60
     local count=0
-    
+
     # Skip VPN wait in web mode or if skip marker exists
     if [[ "${1:-}" == "web" ]] || [[ -f /config/vpn/SKIP_VPN ]]; then
         log_warn "VPN wait skipped in web mode"
+        return 0
+    fi
+
+    # Skip VPN wait in container environments for web panel deployments
+    if is_container && [[ "${1:-}" != "terminal" ]]; then
+        log_warn "VPN wait skipped in container web deployment"
         return 0
     fi
     
@@ -633,8 +645,8 @@ main() {
             # After terminal menu completes, start services
             if [[ -f "$CONFIG_COMPLETE_FILE" ]]; then
                 log_info "Configuration complete, starting services"
-                setup_vpn "$mode" "$mode"
-                wait_for_vpn "$mode" "$mode"
+                setup_vpn "$mode"
+                wait_for_vpn "$mode"
                 start_services
                 
             # Start background monitor and return to terminal menu
@@ -681,25 +693,24 @@ main() {
             if check_dhcp_status "$NETWORK_INTERFACE"; then
                 # DHCP is active - start web panel services, then return to terminal menu
                 log_info "DHCP detected - starting services for web panel"
-                setup_vpn "$mode" "$mode"
-                wait_for_vpn "$mode" "$mode"
+                setup_vpn "web"
+                wait_for_vpn "web"
                 start_services
                 
-                # Start background monitor and show terminal menu
-                (
-                    while true; do
-                        if [[ ! -f "$SERVICE_READY_FILE" ]]; then
-                            log_error "Services not ready, attempting restart..."
-                            start_services
-                        fi
-                        check_service_health > /dev/null 2>&1 || true
-                        sleep 30
-                    done
-                ) &
-                log_info "Services started. Returning to terminal menu..."
-                "$NOC_RAVEN_HOME/scripts/terminal-menu.sh" || true
-                log_info "Terminal menu exited. Keeping container alive."
-                sleep infinity
+                # Start background monitor and keep container running
+                log_info "Services started successfully. Web panel available at http://localhost:8080"
+
+                # Keep container running and monitor services in web mode
+                while true; do
+                    if [[ ! -f "$SERVICE_READY_FILE" ]]; then
+                        log_error "Services not ready, attempting restart..."
+                        start_services
+                    fi
+
+                    # Do not let a transient health failure kill the container in web mode
+                    check_service_health > /dev/null 2>&1 || true
+                    sleep 30
+                done
             else
                 # No DHCP - show terminal menu
                 log_info "No DHCP detected - starting terminal menu"
@@ -708,8 +719,8 @@ main() {
                 # After terminal menu completes, start services
                 if [[ -f "$CONFIG_COMPLETE_FILE" ]]; then
                     log_info "Configuration complete, starting services"
-                    setup_vpn "$mode" "$mode"
-                    wait_for_vpn "$mode" "$mode"
+                    setup_vpn "$mode"
+                    wait_for_vpn "$mode"
                     start_services
                     
                     # Start background monitor and return to terminal menu
