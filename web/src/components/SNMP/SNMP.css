@@ -1,0 +1,234 @@
+/* SNMP Component Styles */
+.restart-btn {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 10px;
+  transition: all 0.3s ease;
+}
+
+.restart-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.restart-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.devices-table {
+  grid-column: span 2;
+}
+
+.device-row {
+  transition: background-color 0.2s ease;
+}
+
+.device-row:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.device-row.status-success {
+  border-left: 3px solid #27ae60;
+  background: rgba(39, 174, 96, 0.05);
+}
+
+.device-row.status-warning {
+  border-left: 3px solid #f39c12;
+  background: rgba(243, 156, 18, 0.05);
+}
+
+.device-row.status-error {
+  border-left: 3px solid #e74c3c;
+  background: rgba(231, 76, 60, 0.05);
+}
+
+.device-row.status-unknown {
+  border-left: 3px solid #95a5a6;
+  background: rgba(149, 165, 166, 0.05);
+}
+
+.device-name {
+  font-weight: bold;
+  color: #3498db;
+}
+
+.device-ip {
+  font-family: 'Courier New', monospace;
+  color: #27ae60;
+}
+
+.device-type {
+  color: #bbb;
+  font-size: 0.9rem;
+}
+
+.device-status {
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.device-status.status-success {
+  background: rgba(39, 174, 96, 0.2);
+  color: #27ae60;
+}
+
+.device-status.status-warning {
+  background: rgba(243, 156, 18, 0.2);
+  color: #f39c12;
+}
+
+.device-status.status-error {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+.device-status.status-unknown {
+  background: rgba(149, 165, 166, 0.2);
+  color: #95a5a6;
+}
+
+.device-uptime {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #bbb;
+}
+
+.device-last-seen {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* Type Stats */
+.type-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.type-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.type-name {
+  font-weight: bold;
+  color: #3498db;
+  text-transform: capitalize;
+}
+
+.type-count {
+  color: #bbb;
+  font-size: 0.9rem;
+}
+
+/* Traps List */
+.traps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.trap-item {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-left: 3px solid #3498db;
+}
+
+.trap-item.severity-critical {
+  border-left-color: #e74c3c;
+  background: rgba(231, 76, 60, 0.05);
+}
+
+.trap-item.severity-warning {
+  border-left-color: #f39c12;
+  background: rgba(243, 156, 18, 0.05);
+}
+
+.trap-item.severity-info {
+  border-left-color: #3498db;
+  background: rgba(52, 152, 219, 0.05);
+}
+
+.trap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.trap-source {
+  font-weight: bold;
+  color: #3498db;
+}
+
+.trap-time {
+  font-size: 0.8rem;
+  color: #bbb;
+}
+
+.trap-message {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: #ddd;
+  word-break: break-word;
+}
+
+/* Metrics List */
+.metrics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.metric-name {
+  font-weight: bold;
+  color: #27ae60;
+  font-size: 0.9rem;
+}
+
+.metric-value {
+  color: #bbb;
+  font-size: 0.9rem;
+  font-family: 'Courier New', monospace;
+}
+
+/* Stat Cards */
+.stat-card.success .stat-value {
+  color: #27ae60;
+}
+
+.stat-card.warning .stat-value {
+  color: #f39c12;
+}
+
+.stat-card.error .stat-value {
+  color: #e74c3c;
+}

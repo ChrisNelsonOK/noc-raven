@@ -1,0 +1,297 @@
+/* Metrics Component Styles */
+
+/* Service Metrics */
+.service-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.service-metric {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.service-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.service-name {
+  font-weight: bold;
+  color: #3498db;
+}
+
+.service-status {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.service-status.running {
+  background: rgba(39, 174, 96, 0.2);
+  color: #27ae60;
+}
+
+.service-status.stopped {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+.service-status.starting {
+  background: rgba(243, 156, 18, 0.2);
+  color: #f39c12;
+}
+
+.service-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 0.9rem;
+  color: #bbb;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+}
+
+/* Throughput Chart */
+.throughput-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.throughput-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.throughput-label {
+  font-weight: bold;
+  color: #bbb;
+  font-size: 0.9rem;
+}
+
+.throughput-value {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.throughput-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.throughput-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.throughput-fill.syslog {
+  background: linear-gradient(90deg, #3498db, #5dade2);
+}
+
+.throughput-fill.netflow {
+  background: linear-gradient(90deg, #27ae60, #58d68d);
+}
+
+.throughput-fill.snmp {
+  background: linear-gradient(90deg, #e67e22, #f8c471);
+}
+
+.throughput-fill.windows {
+  background: linear-gradient(90deg, #9b59b6, #bb8fce);
+}
+
+/* Network Stats */
+.network-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.network-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.network-label {
+  color: #bbb;
+  font-size: 0.9rem;
+}
+
+.network-value {
+  font-weight: bold;
+  color: #fff;
+}
+
+.network-value.error {
+  color: #e74c3c;
+}
+
+/* Storage Metrics */
+.storage-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filesystem-item {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.filesystem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.filesystem-path {
+  font-weight: bold;
+  color: #e67e22;
+  font-family: 'Courier New', monospace;
+}
+
+.filesystem-usage {
+  font-weight: bold;
+  color: #fff;
+}
+
+.filesystem-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.filesystem-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.filesystem-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #bbb;
+}
+
+/* Process List */
+.process-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.process-item {
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.process-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.process-name {
+  font-weight: bold;
+  color: #3498db;
+  font-family: 'Courier New', monospace;
+}
+
+.process-pid {
+  color: #bbb;
+  font-size: 0.8rem;
+  font-family: 'Courier New', monospace;
+}
+
+.process-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: #bbb;
+}
+
+/* Load Metrics */
+.load-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.load-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.load-label {
+  color: #bbb;
+  font-size: 0.9rem;
+}
+
+.load-value {
+  font-weight: bold;
+  color: #fff;
+}
+
+.load-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.load-bar {
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.load-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+
+.load-chart .load-label {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #bbb;
+}

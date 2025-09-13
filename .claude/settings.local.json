@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(curl:*)",
+      "Bash(echo:*)",
+      "Bash(docker exec:*)",
+      "Bash(chmod:*)",
+      "Bash(true)",
+      "Bash(./scripts/run-web-simple.sh:*)",
+      "Bash(docker build:*)",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__directory_tree",
+      "mcp__filesystem__read_multiple_files",
+      "mcp__filesystem__read_file",
+      "Bash(./scripts/run-web.sh:*)",
+      "Bash(cd:*)",
+      "Bash(npm run build:*)",
+      "Bash(DOCKER_BUILDKIT=1 docker build -t noc-raven:phase1-test .)",
+      "Bash(docker run:*)",
+      "Bash(cp:*)",
+      "Bash(DOCKER_BUILDKIT=1 docker build -t noc-raven:test .)",
+      "Bash(docker logs:*)"
+    ],
+    "deny": []
+  }
+}

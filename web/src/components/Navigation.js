@@ -10,6 +10,7 @@ const Navigation = ({ systemStatus }) => {
     { path: '/flows', label: 'Flow', icon: '🌊' },
     { path: '/syslog', label: 'Syslog', icon: '📝' },
     { path: '/snmp', label: 'SNMP', icon: '📡' },
+    { path: '/windows', label: 'Windows Events', icon: '🪟' },
     { path: '/metrics', label: 'Metrics', icon: '📈' },
     { path: '/settings', label: 'Settings', icon: '⚙️' }
   ];

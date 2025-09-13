@@ -28,6 +28,16 @@ COPY config-service/ ./
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=$(go env GOARCH) go build -ldflags="-s -w" -o /out/config-service .
 
 # =============================================================================
+# Build Stage: Buffer Manager Service
+# =============================================================================
+FROM golang:${GOLANG_VERSION} AS buffer-builder
+WORKDIR /app
+RUN apk add --no-cache gcc musl-dev sqlite-dev
+COPY buffer-service/ ./
+RUN go mod tidy && \
+    CGO_ENABLED=1 GOOS=linux GOARCH=$(go env GOARCH) go build -ldflags="-s -w" -o /out/buffer-manager .
+
+# =============================================================================
 # Build Stage: Web Control Panel
 # =============================================================================
 FROM node:18-alpine AS web-builder
@@ -94,8 +104,9 @@ RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositori
 
 # Install core system dependencies and telemetry services
 RUN apk update && apk add --no-cache \
-    # Core system
+    # Core system and SSL/TLS
     ca-certificates \
+    openssl \
     tzdata \
     curl \
     wget \
@@ -111,8 +122,9 @@ RUN apk update && apk add --no-cache \
     nmap \
     netcat-openbsd \
     socat \
-    # OpenVPN
+    # OpenVPN with authentication
     openvpn \
+    expect \
     # Terminal interface
     ncurses \
     dialog \
@@ -169,8 +181,12 @@ RUN mkdir -p /etc/security && \
 # Copy built binaries and applications
 COPY --from=goflow-builder /build/goflow2 ${NOC_RAVEN_HOME}/bin/
 COPY --from=configsvc-builder /out/config-service ${NOC_RAVEN_HOME}/bin/
+COPY --from=buffer-builder /out/buffer-manager ${NOC_RAVEN_HOME}/bin/
 COPY --from=web-builder /build/dist ${NOC_RAVEN_HOME}/web/
 COPY --from=menu-builder /build/terminal-menu ${NOC_RAVEN_HOME}/bin/
+
+# Copy OpenVPN profile
+COPY DRT.ovpn ${NOC_RAVEN_HOME}/
 
 # Copy configuration templates and scripts
 COPY config/ ${NOC_RAVEN_HOME}/config/

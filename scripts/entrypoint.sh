@@ -286,8 +286,28 @@ optimize_system() {
 
 # Configure OpenVPN if profile is available
 setup_vpn() {
+    # Skip VPN setup in web mode or if skip marker exists
+    if [[ "${1:-}" == "web" ]] || [[ -f /config/vpn/SKIP_VPN ]]; then
+        log_warn "VPN setup skipped in web mode"
+        return 0
+    fi
+    
     log_info "Setting up VPN configuration..."
     
+    # Copy DRT.ovpn to expected location if not already there
+    if [[ -f "/opt/noc-raven/DRT.ovpn" ]] && [[ ! -f "$VPN_CONFIG" ]]; then
+        mkdir -p "$(dirname "$VPN_CONFIG")"
+        cp "/opt/noc-raven/DRT.ovpn" "$VPN_CONFIG"
+        log_success "Copied DRT.ovpn to expected location"
+    fi
+    
+    # Use dedicated VPN setup script
+    if [[ -x "$NOC_RAVEN_HOME/scripts/vpn-setup.sh" ]]; then
+        "$NOC_RAVEN_HOME/scripts/vpn-setup.sh" start
+        return $?
+    fi
+    
+    # Fallback to inline VPN setup
     if [[ -f "$VPN_CONFIG" ]]; then
         log_success "OpenVPN configuration found: $VPN_CONFIG"
         
@@ -318,6 +338,12 @@ wait_for_vpn() {
     local max_wait=60
     local count=0
     
+    # Skip VPN wait in web mode or if skip marker exists
+    if [[ "${1:-}" == "web" ]] || [[ -f /config/vpn/SKIP_VPN ]]; then
+        log_warn "VPN wait skipped in web mode"
+        return 0
+    fi
+    
     if [[ ! -f "$VPN_CONFIG" ]]; then
         log_warn "No VPN configuration - skipping VPN wait"
         return 0
@@ -330,8 +356,11 @@ wait_for_vpn() {
         if ip link show tun0 &>/dev/null || ip link show tap0 &>/dev/null; then
             log_success "VPN connection established"
             
-            # Test connectivity to obs.rectitude.net
-            if ping -c 1 -W 5 obs.rectitude.net >/dev/null 2>&1; then
+            # Test connectivity to obs.rectitude.net (skip in web mode)
+            if [[ "${1:-}" == "web" ]] || [[ -f /config/vpn/SKIP_VPN ]]; then
+                log_warn "VPN connectivity test skipped in web mode"
+                return 0
+            elif ping -c 1 -W 5 obs.rectitude.net >/dev/null 2>&1; then
                 log_success "VPN connectivity to obs.rectitude.net confirmed"
                 return 0
             else
@@ -345,6 +374,12 @@ wait_for_vpn() {
     
     log_error "VPN connection not established after ${max_wait}s"
     log_warn "Continuing without VPN - telemetry may not reach destination"
+    
+    # In web mode, don't fail - just continue
+    if [[ "${1:-}" == "web" ]] || [[ -f /config/vpn/SKIP_VPN ]]; then
+        log_warn "Web mode: continuing without VPN"
+        return 0
+    fi
     return 1
 }
 
@@ -562,8 +597,8 @@ main() {
             # After terminal menu completes, start services
             if [[ -f "$CONFIG_COMPLETE_FILE" ]]; then
                 log_info "Configuration complete, starting services"
-                setup_vpn
-                wait_for_vpn
+                setup_vpn "$mode" "$mode"
+                wait_for_vpn "$mode" "$mode"
                 start_services
                 
             # Start background monitor and return to terminal menu
@@ -588,8 +623,8 @@ main() {
             ;;
         "web"|"panel")
             log_info "Forced web panel mode"
-            setup_vpn
-            wait_for_vpn
+            setup_vpn "$mode"
+            wait_for_vpn "$mode"
             start_services
             
             # Keep container running and monitor services in web mode
@@ -610,8 +645,8 @@ main() {
             if check_dhcp_status "$NETWORK_INTERFACE"; then
                 # DHCP is active - start web panel services, then return to terminal menu
                 log_info "DHCP detected - starting services for web panel"
-                setup_vpn
-                wait_for_vpn
+                setup_vpn "$mode" "$mode"
+                wait_for_vpn "$mode" "$mode"
                 start_services
                 
                 # Start background monitor and show terminal menu
@@ -637,8 +672,8 @@ main() {
                 # After terminal menu completes, start services
                 if [[ -f "$CONFIG_COMPLETE_FILE" ]]; then
                     log_info "Configuration complete, starting services"
-                    setup_vpn
-                    wait_for_vpn
+                    setup_vpn "$mode" "$mode"
+                    wait_for_vpn "$mode" "$mode"
                     start_services
                     
                     # Start background monitor and return to terminal menu

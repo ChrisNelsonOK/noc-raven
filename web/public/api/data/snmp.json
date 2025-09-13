@@ -1,0 +1,141 @@
+{
+  "status": "active",
+  "traps_received": 8934,
+  "traps_processed": 8928,
+  "traps_queued": 6,
+  "errors": 0,
+  "last_received": "2025-09-11T14:21:33Z",
+  "average_rate": "12 traps/sec",
+  "peak_rate": "145 traps/sec",
+  "source_devices": [
+    {
+      "hostname": "cisco-core-01.venue.local",
+      "ip": "10.44.44.1",
+      "community": "public",
+      "traps": 2134,
+      "last_trap": "2025-09-11T14:21:33Z",
+      "device_type": "Cisco Catalyst 9300",
+      "top_traps": [
+        {"oid": "1.3.6.1.4.1.9.9.41.1.2.3.1", "count": 89, "type": "linkUp", "description": "Interface came up"},
+        {"oid": "1.3.6.1.4.1.9.9.41.1.2.3.2", "count": 78, "type": "linkDown", "description": "Interface went down"},
+        {"oid": "1.3.6.1.6.3.1.1.5.3", "count": 23, "type": "coldStart", "description": "Device restarted"}
+      ]
+    },
+    {
+      "hostname": "hp-access-sw-12.venue.local", 
+      "ip": "10.44.44.25",
+      "community": "public",
+      "traps": 1876,
+      "last_trap": "2025-09-11T14:20:45Z",
+      "device_type": "HP ProCurve 2920",
+      "top_traps": [
+        {"oid": "1.3.6.1.6.3.1.1.5.3", "count": 45, "type": "coldStart", "description": "Device restarted"},
+        {"oid": "1.3.6.1.2.1.2.2.1.8", "count": 234, "type": "ifOperStatus", "description": "Interface status change"},
+        {"oid": "1.3.6.1.4.1.11.2.14.11.1.9.1.1", "count": 12, "type": "hpicfPowerSupplyFailure", "description": "Power supply issue"}
+      ]
+    },
+    {
+      "hostname": "unifi-controller.venue.local",
+      "ip": "10.44.44.5",
+      "community": "venue-monitoring",
+      "traps": 1523,
+      "last_trap": "2025-09-11T14:19:22Z",
+      "device_type": "Ubiquiti UniFi Controller",
+      "top_traps": [
+        {"oid": "1.3.6.1.4.1.41112.1.4.1.1.3", "count": 156, "type": "unifiApConnected", "description": "Access point connected"},
+        {"oid": "1.3.6.1.4.1.41112.1.4.1.1.4", "count": 145, "type": "unifiApDisconnected", "description": "Access point disconnected"},
+        {"oid": "1.3.6.1.4.1.41112.1.6.1.1.1", "count": 89, "type": "unifiUserConnected", "description": "User device connected"}
+      ]
+    }
+  ],
+  "trap_categories": {
+    "Interface Events": 3456,
+    "System Events": 2123,
+    "Security Events": 1234,
+    "Environmental": 897,
+    "Power/Hardware": 456,
+    "Authentication": 768
+  },
+  "severity_distribution": {
+    "Critical": 23,
+    "Major": 156,
+    "Minor": 2341,
+    "Warning": 4234,
+    "Informational": 2180
+  },
+  "recent_traps": [
+    {
+      "timestamp": "2025-09-11T14:21:33Z",
+      "source_ip": "10.44.44.1",
+      "hostname": "cisco-core-01.venue.local",
+      "oid": "1.3.6.1.4.1.9.9.41.1.2.3.1",
+      "type": "linkUp",
+      "severity": "Informational",
+      "description": "Interface GigabitEthernet1/0/24 changed state to UP",
+      "interface": "GigabitEthernet1/0/24",
+      "community": "public"
+    },
+    {
+      "timestamp": "2025-09-11T14:20:45Z",
+      "source_ip": "10.44.44.25",
+      "hostname": "hp-access-sw-12.venue.local",
+      "oid": "1.3.6.1.4.1.11.2.14.11.1.9.1.1",
+      "type": "hpicfPowerSupplyFailure",
+      "severity": "Major",
+      "description": "Power supply 1 status changed to faulty",
+      "power_supply": "1",
+      "status": "faulty",
+      "community": "public"
+    },
+    {
+      "timestamp": "2025-09-11T14:19:22Z",
+      "source_ip": "10.44.44.5",
+      "hostname": "unifi-controller.venue.local", 
+      "oid": "1.3.6.1.4.1.41112.1.4.1.1.4",
+      "type": "unifiApDisconnected",
+      "severity": "Warning",
+      "description": "Access point U6-Lite-Office-East disconnected from controller",
+      "ap_name": "U6-Lite-Office-East",
+      "ap_mac": "74:AC:B9:12:34:56",
+      "community": "venue-monitoring"
+    }
+  ],
+  "configuration": {
+    "trap_port": 162,
+    "enabled": true,
+    "snmp_version": "2c",
+    "communities": ["public", "venue-monitoring"],
+    "buffer_size": "25MB",
+    "forwarding_target": "obs.rectitude.net:162",
+    "forwarding_enabled": true,
+    "mib_support": true,
+    "mib_path": "/opt/noc-raven/mibs"
+  },
+  "performance": {
+    "cpu_usage": "1.8%",
+    "memory_usage": "32MB", 
+    "disk_io_rate": "450KB/s",
+    "network_io_rate": "234KB/s",
+    "buffer_utilization": "12%"
+  },
+  "polling_targets": [
+    {
+      "ip": "10.44.44.1",
+      "hostname": "cisco-core-01.venue.local",
+      "community": "public",
+      "status": "up",
+      "last_poll": "2025-09-11T14:22:00Z",
+      "response_time": "45ms",
+      "sys_uptime": "15 days, 8 hours"
+    },
+    {
+      "ip": "10.44.44.25", 
+      "hostname": "hp-access-sw-12.venue.local",
+      "community": "public", 
+      "status": "up",
+      "last_poll": "2025-09-11T14:21:55Z",
+      "response_time": "23ms",
+      "sys_uptime": "3 days, 12 hours"
+    }
+  ]
+}

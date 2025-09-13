@@ -1,0 +1,243 @@
+/* Syslog Component Styles */
+.logs-table {
+  grid-column: span 2;
+}
+
+.log-row {
+  transition: background-color 0.2s ease;
+}
+
+.log-row:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.log-row.severity-critical {
+  border-left: 3px solid #e74c3c;
+  background: rgba(231, 76, 60, 0.05);
+}
+
+.log-row.severity-error {
+  border-left: 3px solid #e67e22;
+  background: rgba(230, 126, 34, 0.05);
+}
+
+.log-row.severity-warning {
+  border-left: 3px solid #f39c12;
+  background: rgba(243, 156, 18, 0.05);
+}
+
+.log-row.severity-info {
+  border-left: 3px solid #3498db;
+  background: rgba(52, 152, 219, 0.05);
+}
+
+.log-row.severity-debug {
+  border-left: 3px solid #95a5a6;
+  background: rgba(149, 165, 166, 0.05);
+}
+
+.timestamp {
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  color: #bbb;
+  white-space: nowrap;
+}
+
+.hostname {
+  font-weight: bold;
+  color: #3498db;
+}
+
+.severity {
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.severity.severity-critical {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+.severity.severity-error {
+  background: rgba(230, 126, 34, 0.2);
+  color: #e67e22;
+}
+
+.severity.severity-warning {
+  background: rgba(243, 156, 18, 0.2);
+  color: #f39c12;
+}
+
+.severity.severity-info {
+  background: rgba(52, 152, 219, 0.2);
+  color: #3498db;
+}
+
+.severity.severity-debug {
+  background: rgba(149, 165, 166, 0.2);
+  color: #95a5a6;
+}
+
+.facility {
+  color: #27ae60;
+  font-size: 0.9rem;
+}
+
+.message {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Level Stats */
+.level-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.level-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.level-item.level-critical {
+  border-left: 3px solid #e74c3c;
+}
+
+.level-item.level-error {
+  border-left: 3px solid #e67e22;
+}
+
+.level-item.level-warning {
+  border-left: 3px solid #f39c12;
+}
+
+.level-item.level-info {
+  border-left: 3px solid #3498db;
+}
+
+.level-item.level-debug {
+  border-left: 3px solid #95a5a6;
+}
+
+.level-name {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.level-count {
+  color: #bbb;
+  font-size: 0.8rem;
+}
+
+.level-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.level-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.level-fill.level-critical {
+  background: #e74c3c;
+}
+
+.level-fill.level-error {
+  background: #e67e22;
+}
+
+.level-fill.level-warning {
+  background: #f39c12;
+}
+
+.level-fill.level-info {
+  background: #3498db;
+}
+
+.level-fill.level-debug {
+  background: #95a5a6;
+}
+
+/* Host Stats */
+.host-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.host-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.host-name {
+  font-weight: bold;
+  color: #3498db;
+}
+
+.host-count {
+  color: #bbb;
+  font-size: 0.9rem;
+}
+
+/* Pattern Stats */
+.pattern-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pattern-item {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pattern-text {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: #fff;
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+
+.pattern-count {
+  font-size: 0.8rem;
+  color: #bbb;
+}
+
+/* Stat Cards */
+.stat-card.error .stat-value {
+  color: #e74c3c;
+}
+
+.stat-card.warning .stat-value {
+  color: #f39c12;
+}
+
+.stat-card.info .stat-value {
+  color: #3498db;
+}

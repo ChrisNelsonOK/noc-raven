@@ -1,0 +1,451 @@
+# 🦅 NoC Raven - Enhanced Vector Configuration
+# High-performance data pipeline for telemetry processing and forwarding
+# Production-ready configuration with advanced Windows Events processing
+
+data_dir = "/data/vector"
+
+[api]
+enabled = true
+address = "0.0.0.0:8084"
+playground = false
+
+# =============================================================================
+# SOURCES - Enhanced for Production
+# =============================================================================
+
+# Primary Windows Events HTTP API - Production-ready with authentication
+[sources.windows_events]
+type = "http"
+address = "0.0.0.0:8084"
+path = "/v1/events"
+method = ["POST"]
+headers = ["Content-Type", "Authorization", "X-API-Key", "X-Forwarded-For", "X-Real-IP"]
+max_request_bytes = 10485760  # 10MB
+timeout_secs = 30
+strict_headers = false
+
+# Optional TLS configuration for secure ingestion
+# [sources.windows_events.tls]
+# enabled = true
+# crt_file = "/config/tls/server.crt" 
+# key_file = "/config/tls/server.key"
+# verify_certificate = false
+
+# Optional authentication
+[sources.windows_events.auth]
+strategy = "bearer"
+token = "${WINDOWS_EVENTS_API_TOKEN:-}"
+
+# Health check endpoint
+[sources.vector_health]
+type = "http"
+address = "0.0.0.0:8084"
+path = "/health"
+method = ["GET"]
+max_request_bytes = 1024
+timeout_secs = 5
+
+# Metrics endpoint
+[sources.vector_metrics]
+type = "http"
+address = "0.0.0.0:8084"
+path = "/metrics"
+method = ["GET"]
+max_request_bytes = 1024
+timeout_secs = 5
+
+# Syslog input from Fluent Bit
+[sources.syslog_input]
+type = "syslog"
+address = "0.0.0.0:1514"
+mode = "udp"
+max_length = 102400
+
+# SNMP trap input via socket
+[sources.snmp_input]
+type = "socket"
+address = "0.0.0.0:1162"
+mode = "udp"
+max_length = 65535
+
+# NetFlow data from GoFlow2
+[sources.netflow_input]
+type = "http"
+address = "0.0.0.0:8085"
+path = "/netflow"
+method = ["POST"]
+headers = ["Content-Type"]
+
+# Metrics from Telegraf
+[sources.metrics_input]
+type = "http"
+address = "0.0.0.0:8086"
+path = "/metrics"
+method = ["POST"]
+headers = ["Content-Type"]
+
+# Internal Vector metrics
+[sources.internal_metrics]
+type = "internal_metrics"
+scrape_interval_secs = 10
+
+# File input for log files
+[sources.log_files]
+type = "file"
+include = ["/var/log/noc-raven/*.log"]
+ignore_older_secs = 600
+
+# =============================================================================
+# TRANSFORMS - Enhanced Data Processing
+# =============================================================================
+
+# Enhanced Windows Events processor with comprehensive parsing
+[transforms.windows_processor]
+type = "remap"
+inputs = ["windows_events"]
+source = """
+  # Parse JSON payload if it's a string, otherwise use as-is
+  . = if exists(.message) && is_string(.message) {
+    parse_json(.message) ?? .
+  } else {
+    .
+  }
+  
+  .source_type = "windows_events"
+  .appliance = "noc-raven" 
+  .processed_at = now()
+  .ingestion_timestamp = to_unix_timestamp(now())
+  
+  # Extract and normalize Windows Event fields
+  if exists(.EventID) || exists(.event_id) {
+    .event_id = .EventID ?? .event_id
+    .event_id = to_int(.event_id) ?? 0
+  }
+  
+  if exists(.Channel) || exists(.channel) {
+    .channel = .Channel ?? .channel
+  }
+  
+  if exists(.Computer) || exists(.computer) {
+    .computer = .Computer ?? .computer ?? "unknown"
+  }
+  
+  if exists(.Level) || exists(.level) {
+    .level = to_int(.Level ?? .level) ?? 4
+    .severity_name = if .level == 1 { "critical" }
+      else if .level == 2 { "error" }
+      else if .level == 3 { "warning" }
+      else if .level == 4 { "information" }
+      else if .level == 5 { "verbose" }
+      else { "information" }
+  }
+  
+  # Extract timestamp from Windows Event
+  if exists(.TimeCreated) {
+    .event_timestamp = .TimeCreated
+  } else if exists(.timestamp) {
+    .event_timestamp = .timestamp
+  } else {
+    .event_timestamp = now()
+  }
+  
+  # Enhanced categorization by event log
+  .log_category = if (.channel ?? "") == "System" { "system" }
+    else if (.channel ?? "") == "Application" { "application" }
+    else if (.channel ?? "") == "Security" { "security" }
+    else if (.channel ?? "") == "Setup" { "setup" }
+    else if (.channel ?? "") == "ForwardedEvents" { "forwarded" }
+    else { "other" }
+    
+  # Add security classifications for compliance
+  .security_classification = if (.channel ?? "") == "Security" {
+    if (.event_id ?? 0) >= 4624 && (.event_id ?? 0) <= 4634 { "authentication" }
+    else if (.event_id ?? 0) >= 4648 && (.event_id ?? 0) <= 4672 { "privilege_use" }
+    else if (.event_id ?? 0) >= 4688 && (.event_id ?? 0) <= 4696 { "process_tracking" }
+    else { "security_other" }
+  } else { "non_security" }
+  
+  # Add routing priority for critical events and security alerts
+  .route_priority = if (.level ?? 99) <= 2 || .security_classification == "authentication" {
+    "high" 
+  } else if (.level ?? 99) == 3 || .log_category == "security" {
+    "medium"
+  } else { "normal" }
+  
+  # Add data validation flags
+  .validation = {
+    "has_event_id": exists(.event_id),
+    "has_computer": exists(.computer),
+    "has_channel": exists(.channel),
+    "has_level": exists(.level),
+    "payload_size": length(encode_json(.)) ?? 0
+  }
+  
+  # Extract source IP from HTTP headers if available
+  if exists(."X-Forwarded-For") {
+    .source_ip = split(."X-Forwarded-For", ",")[0]
+  } else if exists(."X-Real-IP") {
+    .source_ip = ."X-Real-IP"
+  }
+"""
+
+# Process syslog messages
+[transforms.syslog_parser]
+type = "remap"
+inputs = ["syslog_input"]
+source = """
+  . = parse_syslog!(.message)
+  .source_type = "syslog"
+  .appliance = "noc-raven"
+  .processed_at = now()
+  
+  # Extract additional fields if they exist
+  if exists(.host) {
+    .device_hostname = .host
+  }
+  
+  # Categorize by facility
+  .log_category = if .facility == 16 { "local0" }
+    else if .facility == 17 { "local1" }
+    else { "other" }
+  
+  # Add severity level name
+  .severity_name = if .severity == 0 { "emergency" }
+    else if .severity == 1 { "alert" }
+    else if .severity == 2 { "critical" }
+    else if .severity == 3 { "error" }
+    else if .severity == 4 { "warning" }
+    else if .severity == 5 { "notice" }
+    else if .severity == 6 { "info" }
+    else if .severity == 7 { "debug" }
+    else { "unknown" }
+"""
+
+# Process SNMP traps
+[transforms.snmp_processor]
+type = "remap"
+inputs = ["snmp_input"]
+source = """
+  .source_type = "snmp_trap"
+  .appliance = "noc-raven"
+  .processed_at = now()
+  
+  # Parse SNMP trap data (enhanced parsing)
+  if contains(string!(.message), "SNMPv2-MIB::sysUpTime") {
+    .trap_type = "system"
+  } else if contains(string!(.message), "IF-MIB") {
+    .trap_type = "interface"
+  } else if contains(string!(.message), "BGP4-MIB") {
+    .trap_type = "routing"
+  } else {
+    .trap_type = "other"
+  }
+  
+  # Extract community string if present
+  if match(string!(.message), r"community: ([\\w-]+)") {
+    .community = capture(string!(.message), r"community: ([\\w-]+)")[0]
+  }
+  
+  # Extract OID information
+  if match(string!(.message), r"([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)") {
+    .oid = capture(string!(.message), r"([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)")[0]
+  }
+"""
+
+# Process NetFlow data
+[transforms.netflow_processor]
+type = "remap"
+inputs = ["netflow_input"]
+source = """
+  . = parse_json!(.message)
+  .source_type = "netflow"
+  .appliance = "noc-raven"
+  .processed_at = now()
+  
+  # Convert byte values to numbers
+  if exists(.bytes) {
+    .bytes = to_int(.bytes) ?? 0
+  }
+  if exists(.packets) {
+    .packets = to_int(.packets) ?? 0
+  }
+  
+  # Add flow direction
+  .flow_direction = if exists(.src_port) && to_int(.src_port) ?? 0 < 1024 { "inbound" }
+    else if exists(.dst_port) && to_int(.dst_port) ?? 0 < 1024 { "outbound" }
+    else { "peer-to-peer" }
+  
+  # Categorize protocols
+  .protocol_name = if .protocol == 1 { "icmp" }
+    else if .protocol == 6 { "tcp" }
+    else if .protocol == 17 { "udp" }
+    else { "other" }
+"""
+
+# Process metrics data
+[transforms.metrics_processor]
+type = "remap"
+inputs = ["metrics_input"]
+source = """
+  . = parse_json!(.message)
+  .source_type = "metrics"
+  .appliance = "noc-raven"
+  .processed_at = now()
+  
+  # Add metric categories
+  if starts_with(string!(.name), "cpu") {
+    .metric_category = "system"
+  } else if starts_with(string!(.name), "mem") {
+    .metric_category = "system"
+  } else if starts_with(string!(.name), "disk") {
+    .metric_category = "storage"
+  } else if starts_with(string!(.name), "net") {
+    .metric_category = "network"
+  } else {
+    .metric_category = "application"
+  }
+"""
+
+# Comprehensive routing tags and metadata enrichment
+[transforms.add_routing_tags]  
+type = "remap"
+inputs = ["syslog_parser", "netflow_processor", "snmp_processor", "metrics_processor", "windows_processor"]
+source = """
+  # Enhanced routing based on data type and priority
+  if .source_type == "syslog" && (.severity ?? 99) <= 3 {
+    .route_priority = "high"
+  } else if .source_type == "netflow" && (.bytes ?? 0) > 1000000 {
+    .route_priority = "high"
+  } else if .source_type == "windows_events" && (.route_priority ?? "normal") == "high" {
+    .route_priority = "high"
+  } else if .source_type == "snmp_trap" {
+    .route_priority = "medium"
+  } else {
+    .route_priority = "normal"
+  }
+  
+  # Add comprehensive metadata
+  .tenant = "default"
+  .environment = "production"
+  .appliance_id = "noc-raven-001"
+  .data_pipeline_version = "1.0.0"
+  
+  # Add performance tracking
+  .processing_duration_ms = to_int((to_unix_timestamp(now()) - to_unix_timestamp(.processed_at ?? now())) * 1000) ?? 0
+  
+  # Add data quality metrics
+  .quality_score = if exists(.validation) && is_object(.validation) {
+    # Calculate quality score based on required fields presence
+    length(filter(values(.validation), v => v == true)) / length(.validation) * 100
+  } else { 100 }
+"""
+
+# Health monitoring
+[transforms.health_response]
+type = "remap"
+inputs = ["vector_health"]
+source = """
+  .status = "healthy"
+  .timestamp = now()
+  .version = "1.0.0"
+  .uptime_seconds = uptime()
+  .components = {
+    "windows_events_api": "active",
+    "buffer_manager": "active",
+    "file_sinks": "active",
+    "prometheus_metrics": "active"
+  }
+"""
+
+# =============================================================================
+# SINKS - Production Output Configuration
+# =============================================================================
+
+# Buffer Manager output for telemetry data buffering
+[sinks.buffer_manager]
+type = "http"
+inputs = ["add_routing_tags"]
+uri = "http://127.0.0.1:5005/api/buffer/ingest"
+method = "post"
+compression = "gzip"
+
+[sinks.buffer_manager.encoding]
+codec = "json"
+
+[sinks.buffer_manager.request]
+timeout_secs = 5
+retry_attempts = 3
+retry_max_duration_secs = 10
+
+# File output for logs with hourly rotation
+[sinks.logs_file]
+type = "file"
+inputs = ["add_routing_tags"]
+path = "/data/logs/vector-logs-%Y-%m-%dT%H.log"
+compression = "gzip"
+
+[sinks.logs_file.encoding]
+codec = "json"
+
+# File output for metrics
+[sinks.metrics_file]
+type = "file"
+inputs = ["metrics_processor", "internal_metrics"]
+path = "/data/metrics/vector-metrics-%Y-%m-%dT%H.log"
+compression = "gzip"
+
+[sinks.metrics_file.encoding]
+codec = "json"
+
+# High-priority alerts file
+[sinks.alerts_file]
+type = "file"
+inputs = ["add_routing_tags"]
+path = "/data/alerts/vector-alerts-%Y-%m-%dT%H.log"
+compression = "gzip"
+
+[sinks.alerts_file.encoding]
+codec = "json"
+
+# Prometheus metrics export
+[sinks.prometheus_metrics]
+type = "prometheus_exporter"
+inputs = ["internal_metrics"]
+address = "0.0.0.0:9090"
+path = "/metrics"
+
+# Health response endpoint
+[sinks.health_response]
+type = "http"
+inputs = ["health_response"]
+uri = "http://localhost:8080/api/vector/health"
+method = "post"
+compression = "gzip"
+
+[sinks.health_response.encoding]
+codec = "json"
+
+# =============================================================================
+# BUFFERS - Enhanced Buffer Configuration
+# =============================================================================
+
+# Disk buffers for reliability with production-ready sizes
+[sinks.logs_file.buffer]
+type = "disk"
+max_size = 104857600  # 100MB
+when_full = "drop_newest"
+
+[sinks.metrics_file.buffer]
+type = "disk"
+max_size = 52428800   # 50MB
+when_full = "drop_newest"
+
+[sinks.buffer_manager.buffer]
+type = "memory"
+max_events = 5000
+when_full = "drop_newest"
+
+[sinks.alerts_file.buffer]
+type = "memory"
+max_events = 1000
+when_full = "block"
