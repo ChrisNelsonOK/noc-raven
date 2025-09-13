@@ -624,7 +624,11 @@ parse_args() {
 # Main function
 main() {
     local mode="$(parse_args "$@")"
-    
+
+    # Debug logging
+    log_info "Entrypoint started with arguments: $*"
+    log_info "Parsed mode: $mode"
+
     # Show banner
     show_banner
     
@@ -689,6 +693,25 @@ main() {
             ;;
         "auto"|*)
             log_info "Auto-detecting interface mode..."
+
+            # Debug Docker detection
+            log_info "Checking Docker environment..."
+            if [[ -f /.dockerenv ]]; then
+                log_info "Found /.dockerenv file"
+            else
+                log_info "No /.dockerenv file found"
+            fi
+
+            if [[ -f /proc/1/cgroup ]]; then
+                log_info "Checking /proc/1/cgroup for docker/lxc patterns..."
+                if grep -q 'docker\|lxc' /proc/1/cgroup 2>/dev/null; then
+                    log_info "Found docker/lxc pattern in /proc/1/cgroup"
+                else
+                    log_info "No docker/lxc pattern found in /proc/1/cgroup"
+                fi
+            else
+                log_info "/proc/1/cgroup does not exist"
+            fi
 
             # Check if running in Docker container
             if [[ -f /.dockerenv ]] || grep -q 'docker\|lxc' /proc/1/cgroup 2>/dev/null; then

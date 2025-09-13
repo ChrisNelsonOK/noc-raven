@@ -253,7 +253,7 @@ USER nocraven
 
 # Entry point
 ENTRYPOINT ["./bin/entrypoint.sh"]
-CMD ["--mode=auto"]
+CMD ["--mode=web"]
 
 # Build information
 ARG BUILD_DATE
