@@ -33,7 +33,7 @@ Quick start
    docker run -d --name noc-raven \
      -p 9080:8080 \
      -p 8084:8084 \
-     -p 2055:2055/udp -p 4739:4739/udp -p 6343:6343/udp \
+     -p 514:514/udp -p 2055:2055/udp -p 4739:4739/udp -p 6343:6343/udp \
      -p 162:162/udp \
      -v noc-raven-data:/data -v noc-raven-config:/config \
      noc-raven:test --mode=web
@@ -42,7 +42,7 @@ Default ports (inside the container)
 - Web UI: 8080/tcp (expose on host)
 - Windows Events HTTP (Vector): 8084/tcp (expose on host for event ingestion)
 - Config-service API: 5004/tcp (internal, proxied by Nginx at /api; do not expose in production)
-- Collectors (UDP): NetFlow v5 2055, IPFIX 4739, sFlow 6343, SNMP traps 162
+- Collectors (UDP): Syslog 514, NetFlow v5 2055, IPFIX 4739, sFlow 6343, SNMP traps 162
 
 Dynamic configuration
 - JSON config path: /opt/noc-raven/web/api/config.json

@@ -40,6 +40,7 @@ docker run -d \
   --restart unless-stopped \
   -p 9080:8080 \
   -p 8084:8084/tcp \
+  -p 514:514/udp \
   -p 2055:2055/udp \
   -p 4739:4739/udp \
   -p 6343:6343/udp \
@@ -67,6 +68,7 @@ docker run -d \
   --restart unless-stopped \
   -p 9080:8080 \
   -p 8084:8084/tcp \
+  -p 514:514/udp \
   -p 2055:2055/udp \
   -p 4739:4739/udp \
   -p 6343:6343/udp \
@@ -260,6 +262,7 @@ docker run -d \
   --restart unless-stopped \
   -p 9080:8080 \
   -p 8084:8084/tcp \
+  -p 514:514/udp \
   -p 2055:2055/udp \
   -p 4739:4739/udp \
   -p 6343:6343/udp \
