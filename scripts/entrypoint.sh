@@ -689,14 +689,35 @@ main() {
             ;;
         "auto"|*)
             log_info "Auto-detecting interface mode..."
-            
-            if check_dhcp_status "$NETWORK_INTERFACE"; then
+
+            # Check if running in Docker container
+            if [[ -f /.dockerenv ]] || grep -q 'docker\|lxc' /proc/1/cgroup 2>/dev/null; then
+                log_info "Docker container detected - forcing web mode"
+                setup_vpn "web"
+                wait_for_vpn "web"
+                start_services
+
+                # Start background monitor and keep container running
+                log_info "Services started successfully. Web panel available at http://localhost:8080"
+
+                # Keep container running and monitor services in web mode
+                while true; do
+                    if [[ ! -f "$SERVICE_READY_FILE" ]]; then
+                        log_error "Services not ready, attempting restart..."
+                        start_services
+                    fi
+
+                    # Do not let a transient health failure kill the container in web mode
+                    check_service_health > /dev/null 2>&1 || true
+                    sleep 30
+                done
+            elif check_dhcp_status "$NETWORK_INTERFACE"; then
                 # DHCP is active - start web panel services, then return to terminal menu
                 log_info "DHCP detected - starting services for web panel"
                 setup_vpn "web"
                 wait_for_vpn "web"
                 start_services
-                
+
                 # Start background monitor and keep container running
                 log_info "Services started successfully. Web panel available at http://localhost:8080"
 

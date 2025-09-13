@@ -815,32 +815,37 @@ func handleWindows(w http.ResponseWriter, r *http.Request) {
 func handleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// Get system metrics
-	var memTotal, memAvail, memUsed int64
+	// Get system metrics with error handling
+	var memTotal, memAvail, memUsed int64 = 1, 0, 0 // Default values to avoid division by zero
 	if b, err := os.ReadFile("/proc/meminfo"); err == nil {
 		for _, line := range strings.Split(string(b), "\n") {
 			fields := strings.Fields(line)
 			if len(fields) >= 2 {
 				if strings.HasPrefix(line, "MemTotal:") {
-					if v, e := strconv.ParseInt(fields[1], 10, 64); e == nil {
+					if v, e := strconv.ParseInt(fields[1], 10, 64); e == nil && v > 0 {
 						memTotal = v * 1024 // Convert KB to bytes
 					}
 				} else if strings.HasPrefix(line, "MemAvailable:") {
-					if v, e := strconv.ParseInt(fields[1], 10, 64); e == nil {
+					if v, e := strconv.ParseInt(fields[1], 10, 64); e == nil && v >= 0 {
 						memAvail = v * 1024
 					}
 				}
 			}
 		}
-		memUsed = memTotal - memAvail
+		if memTotal > memAvail {
+			memUsed = memTotal - memAvail
+		}
 	}
 
-	// Get disk usage
-	var diskTotal, diskUsed int64
+	// Get disk usage with error handling
+	var diskTotal, diskUsed int64 = 1, 0 // Default values to avoid division by zero
 	if stat, err := os.Stat("/"); err == nil {
-		if statfs, ok := stat.Sys().(*syscall.Statfs_t); ok {
+		if statfs, ok := stat.Sys().(*syscall.Statfs_t); ok && statfs.Blocks > 0 {
 			diskTotal = int64(statfs.Blocks) * int64(statfs.Bsize)
 			diskUsed = diskTotal - (int64(statfs.Bavail) * int64(statfs.Bsize))
+			if diskUsed < 0 {
+				diskUsed = 0
+			}
 		}
 	}
 
@@ -864,10 +869,21 @@ func handleMetrics(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Calculate percentages safely
+	memUsagePct := 0.0
+	if memTotal > 0 {
+		memUsagePct = float64(memUsed) / float64(memTotal) * 100
+	}
+
+	diskUsagePct := 0.0
+	if diskTotal > 0 {
+		diskUsagePct = float64(diskUsed) / float64(diskTotal) * 100
+	}
+
 	metrics := map[string]any{
 		"cpu_usage":    "0%",
-		"memory_usage": fmt.Sprintf("%.1f%%", float64(memUsed)/float64(memTotal)*100),
-		"disk_usage":   fmt.Sprintf("%.1f%%", float64(diskUsed)/float64(diskTotal)*100),
+		"memory_usage": fmt.Sprintf("%.1f%%", memUsagePct),
+		"disk_usage":   fmt.Sprintf("%.1f%%", diskUsagePct),
 		"uptime":       uptime,
 		"memory": map[string]any{
 			"total":     memTotal,
