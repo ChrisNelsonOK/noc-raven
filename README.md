@@ -29,14 +29,14 @@ Quick start
    # Open the UI:
    http://localhost:9080
 
-   Alternative direct docker run (web mode - recommended for containers):
+   Alternative direct docker run (auto-detects DHCP, shows terminal menu if needed):
    docker run -d --name noc-raven \
      -p 9080:8080 \
      -p 8084:8084 \
      -p 514:514/udp -p 2055:2055/udp -p 4739:4739/udp -p 6343:6343/udp \
      -p 162:162/udp \
      -v noc-raven-data:/data -v noc-raven-config:/config \
-     noc-raven:test --mode=web
+     noc-raven:test
 
 Default ports (inside the container)
 - Web UI: 8080/tcp (expose on host)

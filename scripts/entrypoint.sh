@@ -48,8 +48,30 @@ readonly DHCP_CHECK_FILE="/tmp/dhcp-status"
 readonly CONFIG_COMPLETE_FILE="/tmp/config-complete"
 readonly SERVICE_READY_FILE="/tmp/services-ready"
 
-# Network interface (default, can be overridden)
-NETWORK_INTERFACE="${NETWORK_INTERFACE:-eth0}"
+# Network interface (auto-detect primary interface)
+detect_primary_interface() {
+    # Try to find the primary network interface with an IP address
+    local interface
+    interface=$(ip route show default | awk '/default/ { print $5 }' | head -n1)
+
+    if [[ -n "$interface" ]]; then
+        echo "$interface"
+        return 0
+    fi
+
+    # Fallback: find first interface with IP that's not loopback
+    interface=$(ip addr show | awk '/^[0-9]+:/ && !/lo:/ { gsub(/:/, "", $2); iface=$2 } /inet.*scope global/ && iface { print iface; exit }')
+
+    if [[ -n "$interface" ]]; then
+        echo "$interface"
+        return 0
+    fi
+
+    # Final fallback
+    echo "eth0"
+}
+
+NETWORK_INTERFACE="${NETWORK_INTERFACE:-$(detect_primary_interface)}"
 
 # =============================================================================
 # UTILITY FUNCTIONS
@@ -124,15 +146,29 @@ check_dhcp_status() {
     local has_ip=false
     
     log_info "Checking DHCP status for interface $interface..."
+
+    # Debug: Show interface details
+    log_info "Interface details:"
+    ip addr show "$interface" 2>/dev/null | head -5 | while read line; do
+        log_info "  $line"
+    done
     
     # Check if interface has IP address
-    if ip addr show "$interface" 2>/dev/null | grep -q "inet.*dynamic"; then
+    if ip addr show "$interface" 2>/dev/null | grep -q "inet.*scope global"; then
         has_ip=true
-        dhcp_active=true
-        log_info "Interface $interface has DHCP-assigned IP address"
-    elif ip addr show "$interface" 2>/dev/null | grep -q "inet"; then
-        has_ip=true
-        log_info "Interface $interface has static IP address"
+        log_info "Interface $interface has IP address"
+
+        # In container environments, assume DHCP if interface has IP
+        if is_container; then
+            dhcp_active=true
+            log_info "Container environment detected - assuming DHCP active for interface with IP"
+        fi
+
+        # Also check for explicit dynamic flag
+        if ip addr show "$interface" 2>/dev/null | grep -q "inet.*dynamic"; then
+            dhcp_active=true
+            log_info "Interface $interface has DHCP-assigned IP address (dynamic flag detected)"
+        fi
     fi
     
     # Check for DHCP client processes

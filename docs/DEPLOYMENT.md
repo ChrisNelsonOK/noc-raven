@@ -37,7 +37,7 @@ sudo chown -R 1000:1000 /opt/noc-raven
 # IMPORTANT: The container runs as user 'nocraven' (UID 1000)
 # Ensure the host directories are owned by UID 1000 to avoid permission errors
 
-# Run in production mode (web mode for containers)
+# Run in production mode (auto-detects DHCP and shows terminal menu if needed)
 docker run -d \
   --name noc-raven \
   --restart unless-stopped \
@@ -52,7 +52,7 @@ docker run -d \
   -v /opt/noc-raven/config:/config \
   -v /opt/noc-raven/logs:/var/log/noc-raven \
   --cap-add NET_ADMIN \
-  rectitude369/noc-raven:1.0.0 --mode=web
+  rectitude369/noc-raven:1.0.0
 ```
 
 ### Method 2: Build from Source
@@ -69,7 +69,7 @@ DOCKER_BUILDKIT=1 docker build -t noc-raven:local .
 sudo mkdir -p /opt/noc-raven/{data,config,logs}
 sudo chown -R 1000:1000 /opt/noc-raven
 
-# Run with local image (web mode for containers)
+# Run with local image (auto-detects DHCP and shows terminal menu if needed)
 docker run -d \
   --name noc-raven \
   --restart unless-stopped \
@@ -84,7 +84,7 @@ docker run -d \
   -v /opt/noc-raven/config:/config \
   -v /opt/noc-raven/logs:/var/log/noc-raven \
   --cap-add NET_ADMIN \
-  noc-raven:local --mode=web
+  noc-raven:local
 ```
 
 ---
@@ -278,7 +278,7 @@ docker run -d \
   -v /opt/noc-raven/config:/config \
   -v /opt/noc-raven/logs:/var/log/noc-raven \
   --cap-add NET_ADMIN \
-  rectitude369/noc-raven:latest --mode=web
+  rectitude369/noc-raven:latest
 ```
 
 ---
@@ -315,11 +315,20 @@ docker restart noc-raven
 # Error: "No DHCP detected"
 # Container keeps restarting
 
-# SOLUTION: Force web mode (skip DHCP detection)
-docker stop noc-raven
-docker rm noc-raven
+# DIAGNOSIS: Check what interface is being detected
+docker run --rm noc-raven:production ip addr show
 
-# Run with --mode=web parameter
+# SOLUTION 1: Let container show terminal menu (attach to configure)
+docker run -it --name noc-raven \
+  -p 9080:8080 -p 8084:8084/tcp \
+  -p 514:514/udp -p 2055:2055/udp -p 4739:4739/udp \
+  -p 6343:6343/udp -p 162:162/udp \
+  -v /opt/noc-raven/data:/data \
+  -v /opt/noc-raven/config:/config \
+  --cap-add NET_ADMIN \
+  noc-raven:production
+
+# SOLUTION 2: Force web mode (bypass DHCP detection)
 docker run -d --name noc-raven \
   --restart unless-stopped \
   -p 9080:8080 -p 8084:8084/tcp \
@@ -329,6 +338,18 @@ docker run -d --name noc-raven \
   -v /opt/noc-raven/config:/config \
   --cap-add NET_ADMIN \
   noc-raven:production --mode=web
+
+# SOLUTION 3: Override network interface
+docker run -d --name noc-raven \
+  -e NETWORK_INTERFACE=eth0 \
+  --restart unless-stopped \
+  -p 9080:8080 -p 8084:8084/tcp \
+  -p 514:514/udp -p 2055:2055/udp -p 4739:4739/udp \
+  -p 6343:6343/udp -p 162:162/udp \
+  -v /opt/noc-raven/data:/data \
+  -v /opt/noc-raven/config:/config \
+  --cap-add NET_ADMIN \
+  noc-raven:production
 ```
 
 **4. Service Not Starting**
