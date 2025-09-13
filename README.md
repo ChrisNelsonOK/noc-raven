@@ -29,7 +29,7 @@ Quick start
    # Open the UI:
    http://localhost:9080
 
-   Alternative direct docker run (web):
+   Alternative direct docker run (web mode - recommended for containers):
    docker run -d --name noc-raven \
      -p 9080:8080 \
      -p 8084:8084 \

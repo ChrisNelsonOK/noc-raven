@@ -37,7 +37,7 @@ sudo chown -R 1000:1000 /opt/noc-raven
 # IMPORTANT: The container runs as user 'nocraven' (UID 1000)
 # Ensure the host directories are owned by UID 1000 to avoid permission errors
 
-# Run in production mode
+# Run in production mode (web mode for containers)
 docker run -d \
   --name noc-raven \
   --restart unless-stopped \
@@ -52,7 +52,7 @@ docker run -d \
   -v /opt/noc-raven/config:/config \
   -v /opt/noc-raven/logs:/var/log/noc-raven \
   --cap-add NET_ADMIN \
-  rectitude369/noc-raven:1.0.0
+  rectitude369/noc-raven:1.0.0 --mode=web
 ```
 
 ### Method 2: Build from Source
@@ -69,7 +69,7 @@ DOCKER_BUILDKIT=1 docker build -t noc-raven:local .
 sudo mkdir -p /opt/noc-raven/{data,config,logs}
 sudo chown -R 1000:1000 /opt/noc-raven
 
-# Run with local image
+# Run with local image (web mode for containers)
 docker run -d \
   --name noc-raven \
   --restart unless-stopped \
@@ -84,7 +84,7 @@ docker run -d \
   -v /opt/noc-raven/config:/config \
   -v /opt/noc-raven/logs:/var/log/noc-raven \
   --cap-add NET_ADMIN \
-  noc-raven:local
+  noc-raven:local --mode=web
 ```
 
 ---
@@ -278,7 +278,7 @@ docker run -d \
   -v /opt/noc-raven/config:/config \
   -v /opt/noc-raven/logs:/var/log/noc-raven \
   --cap-add NET_ADMIN \
-  rectitude369/noc-raven:latest
+  rectitude369/noc-raven:latest --mode=web
 ```
 
 ---
@@ -309,7 +309,29 @@ sudo chmod -R 755 /opt/noc-raven
 docker restart noc-raven
 ```
 
-**3. Service Not Starting**
+**3. Container Restart Loop / DHCP Issues**
+```bash
+# Error: "DHCP is not active - will show terminal menu"
+# Error: "No DHCP detected"
+# Container keeps restarting
+
+# SOLUTION: Force web mode (skip DHCP detection)
+docker stop noc-raven
+docker rm noc-raven
+
+# Run with --mode=web parameter
+docker run -d --name noc-raven \
+  --restart unless-stopped \
+  -p 9080:8080 -p 8084:8084/tcp \
+  -p 514:514/udp -p 2055:2055/udp -p 4739:4739/udp \
+  -p 6343:6343/udp -p 162:162/udp \
+  -v /opt/noc-raven/data:/data \
+  -v /opt/noc-raven/config:/config \
+  --cap-add NET_ADMIN \
+  noc-raven:production --mode=web
+```
+
+**4. Service Not Starting**
 ```bash
 # Check service logs
 docker exec noc-raven supervisorctl status
