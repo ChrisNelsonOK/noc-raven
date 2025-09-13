@@ -30,9 +30,12 @@ NoC Raven is a containerized telemetry collection appliance designed for product
 # Pull the production image
 docker pull rectitude369/noc-raven:1.0.0
 
-# Create data directories
+# Create data directories with correct ownership
 sudo mkdir -p /opt/noc-raven/{data,config,logs}
 sudo chown -R 1000:1000 /opt/noc-raven
+
+# IMPORTANT: The container runs as user 'nocraven' (UID 1000)
+# Ensure the host directories are owned by UID 1000 to avoid permission errors
 
 # Run in production mode
 docker run -d \
@@ -61,6 +64,10 @@ cd noc-raven
 
 # Build production image
 DOCKER_BUILDKIT=1 docker build -t noc-raven:local .
+
+# Create data directories with correct ownership
+sudo mkdir -p /opt/noc-raven/{data,config,logs}
+sudo chown -R 1000:1000 /opt/noc-raven
 
 # Run with local image
 docker run -d \
@@ -291,9 +298,15 @@ sudo fuser -k 514/udp
 
 **2. Permission Issues**
 ```bash
+# Error: "mkdir: can't create directory '/data/syslog': Permission denied"
+# This happens when mounted volumes don't have correct ownership
+
 # Fix data directory permissions
 sudo chown -R 1000:1000 /opt/noc-raven
 sudo chmod -R 755 /opt/noc-raven
+
+# Restart container after fixing permissions
+docker restart noc-raven
 ```
 
 **3. Service Not Starting**
