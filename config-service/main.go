@@ -820,11 +820,25 @@ func handleMetrics(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get real CPU usage
+	// Get real CPU usage (Alpine Linux compatible)
 	cpuUsage := 0.0
-	if output, err := exec.Command("sh", "-c", "top -l 1 | grep 'CPU usage' | awk '{print $3}' | sed 's/%//'").Output(); err == nil {
+	if output, err := exec.Command("sh", "-c", "top -bn1 | grep 'CPU:' | head -1 | awk '{print $2}' | sed 's/%//'").Output(); err == nil {
 		if cpu, err := strconv.ParseFloat(strings.TrimSpace(string(output)), 64); err == nil {
 			cpuUsage = cpu
+		}
+	}
+	// Fallback: calculate from load average
+	if cpuUsage == 0.0 {
+		if b, err := os.ReadFile("/proc/loadavg"); err == nil {
+			parts := strings.Fields(string(b))
+			if len(parts) > 0 {
+				if load, err := strconv.ParseFloat(parts[0], 64); err == nil {
+					cpuUsage = load * 100 / float64(runtime.NumCPU())
+					if cpuUsage > 100 {
+						cpuUsage = 100
+					}
+				}
+			}
 		}
 	}
 
@@ -919,11 +933,25 @@ func handleBuffer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get real CPU usage
+	// Get real CPU usage (Alpine Linux compatible)
 	cpuUsage := 0
-	if output, err := exec.Command("sh", "-c", "top -l 1 | grep 'CPU usage' | awk '{print $3}' | sed 's/%//'").Output(); err == nil {
+	if output, err := exec.Command("sh", "-c", "top -bn1 | grep 'CPU:' | head -1 | awk '{print $2}' | sed 's/%//'").Output(); err == nil {
 		if cpu, err := strconv.ParseFloat(strings.TrimSpace(string(output)), 64); err == nil {
 			cpuUsage = int(cpu)
+		}
+	}
+	// Fallback: calculate from load average
+	if cpuUsage == 0 {
+		if b, err := os.ReadFile("/proc/loadavg"); err == nil {
+			parts := strings.Fields(string(b))
+			if len(parts) > 0 {
+				if load, err := strconv.ParseFloat(parts[0], 64); err == nil {
+					cpuUsage = int(load * 100 / float64(runtime.NumCPU()))
+					if cpuUsage > 100 {
+						cpuUsage = 100
+					}
+				}
+			}
 		}
 	}
 

@@ -32,8 +32,8 @@
       "bindAddress": "0.0.0.0"
     },
     "windows": {
-      "enabled": false,
-      "port": 8085,
+      "enabled": true,
+      "port": 8084,
       "protocol": "HTTP",
       "bindAddress": "0.0.0.0",
       "format": "json",
@@ -74,9 +74,9 @@
       "version": "5"
     },
     "windows": {
-      "enabled": false,
+      "enabled": true,
       "targetHost": "",
-      "targetPort": 8085,
+      "targetPort": 8084,
       "format": "http",
       "channels": "System,Security,Application",
       "bufferSize": 10
