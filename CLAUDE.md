@@ -146,7 +146,7 @@ Read and follow **ALL 12 IMMUTABLE PROJECT RULES** in `DEVELOPMENT.md` - these s
 Use `./scripts/run-web.sh` for development with bind mounts to local directories.
 
 ### Production  
-Use production image `rectitude369/noc-raven:1.0.0` with Docker volumes for persistence:
+Use production image `rectitude369/noc-raven:latest` with Docker volumes for persistence:
 - `/data` - Telemetry buffers and logs  
 - `/config` - User configuration
 - `/var/log/noc-raven` - Application logs

@@ -16,7 +16,7 @@ RESET='\033[0m'
 # Configuration
 CONTAINER_NAME="noc-raven-test"
 IMAGE_NAME="rectitude369/noc-raven"
-IMAGE_TAG="1.0.0-alpha"
+IMAGE_TAG="latest"
 FULL_IMAGE_NAME="${IMAGE_NAME}:${IMAGE_TAG}"
 # Use high, likely-free host ports for testing to avoid conflicts
 HOST_WEB_PORT=${HOST_WEB_PORT:-19080}

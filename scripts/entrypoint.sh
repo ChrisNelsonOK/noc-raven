@@ -77,11 +77,29 @@ NETWORK_INTERFACE="${NETWORK_INTERFACE:-$(detect_primary_interface)}"
 # UTILITY FUNCTIONS
 # =============================================================================
 
+# Ensure log directory exists before any logging
+ensure_log_dir() {
+    if [[ ! -d "$LOG_DIR" ]]; then
+        mkdir -p "$LOG_DIR" 2>/dev/null || true
+        # If we can't create it, fall back to /tmp
+        if [[ ! -d "$LOG_DIR" ]]; then
+            LOG_DIR="/tmp/noc-raven-logs"
+            mkdir -p "$LOG_DIR" 2>/dev/null || true
+        fi
+    fi
+    # Ensure we can write to the log directory
+    if [[ ! -w "$LOG_DIR" ]]; then
+        LOG_DIR="/tmp/noc-raven-logs"
+        mkdir -p "$LOG_DIR" 2>/dev/null || true
+    fi
+}
+
 # Logging function with timestamp
 log() {
     local level="$1"
     shift
-    echo -e "[$(date -Iseconds)] [${level}] $*" | tee -a "$LOG_DIR/entrypoint.log"
+    ensure_log_dir
+    echo -e "[$(date -Iseconds)] [${level}] $*" | tee -a "$LOG_DIR/entrypoint.log" 2>/dev/null || echo -e "[$(date -Iseconds)] [${level}] $*"
 }
 
 # Colored logging functions
@@ -236,14 +254,20 @@ init_directories() {
     
     for dir in "${dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
-            mkdir -p "$dir"
+            mkdir -p "$dir" 2>/dev/null || {
+                log_warn "Failed to create directory: $dir"
+                continue
+            }
             log_info "Created directory: $dir"
         fi
     done
     
-    # Set proper ownership if not running as the intended user
+    # Set proper ownership if running as root
     if [[ "$(id -u)" == "0" ]]; then
         chown -R nocraven:nocraven "$DATA_DIR" "$CONFIG_DIR" "$LOG_DIR" 2>/dev/null || true
+    else
+        # If running as non-root, try to fix permissions for log directory
+        chmod 755 "$LOG_DIR" 2>/dev/null || true
     fi
     
     log_success "Directory initialization complete"

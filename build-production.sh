@@ -8,7 +8,7 @@ set -euo pipefail
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_NAME="noc-raven"
-PRODUCTION_TAG="rectitude369/noc-raven:2.0.0-production"
+PRODUCTION_TAG="rectitude369/noc-raven:latest"
 TEST_CONTAINER_NAME="noc-raven-production-test"
 TEST_PORT_WEB="9080"
 TEST_PORT_API="9084"

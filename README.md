@@ -1,6 +1,6 @@
 # 🦅 NoC Raven – Telemetry Collection & Forwarding Appliance
 
-**Status: ✅ PRODUCTION READY** | **Version: 2.0.0** | **Last Updated: September 2025**
+**Status: ✅ PRODUCTION READY** | **Version: 2.0.2** | **Last Updated: September 2025**
 
 NoC Raven is a high‑performance, turn‑key telemetry collection and forwarding appliance designed for venue environments. **Fully tested and certified for production deployment.**
 
@@ -76,7 +76,7 @@ Production image tag
 - Canonical Dockerfile for builds: Dockerfile (see docs/DOCKERFILES.md)
 - Deprecated: Dockerfile.web (reference only)
 - Legacy: Dockerfile.production (if present)
-- rectitude369/noc-raven:1.0.0
+- rectitude369/noc-raven:latest
 
 Recent changes
 - Node backend removed in favor of Go config-service (canonical API behind Nginx /api)

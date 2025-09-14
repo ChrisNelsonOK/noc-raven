@@ -1,7 +1,7 @@
 services:
   noc-raven:
     build: .
-    image: noc-raven:test
+    image: noc-raven:latest
     container_name: noc-raven
     user: "0:0"
     cap_add:

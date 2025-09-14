@@ -135,7 +135,7 @@ NoC Raven telemetry collection appliance has successfully achieved **100% produc
 
 **Container Rebuild Process:**
 1. ✅ **Container Destroyed**: Stopped and removed existing noc-raven-web container
-2. ✅ **Fresh Image Build**: Successfully rebuilt container from source using `DOCKER_BUILDKIT=1 docker build -t noc-raven:test .`
+2. ✅ **Fresh Image Build**: Successfully rebuilt container from source using `DOCKER_BUILDKIT=1 docker build -t noc-raven:latest .`
 3. ✅ **Clean Deployment**: Started fresh container with corrected configuration
 4. ✅ **Functionality Verification**: All 5 critical issues verified as resolved in fresh deployment
 

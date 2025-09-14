@@ -35,7 +35,7 @@ If nothing works, try this direct access:
 ```bash
 docker run -d --name noc-raven-direct \
   -p 8080:8080 \
-  noc-raven:test --mode=web
+  noc-raven:latest --mode=web
 
 # Then access: http://localhost:8080
 ```
