@@ -1,15 +1,24 @@
 import React from 'react';
-import { useApiData } from '../../hooks/useApiService';
+import { useApiData, useServiceManager } from '../../hooks/useApiService';
 import './NetFlow.css';
 
 const NetFlow = () => {
   const { data: flows, loading, error } = useApiData('/flows', 5000);
+  const { restartService, loading: restarting } = useServiceManager();
+
+  const handleRestartFlow = async () => {
+    try {
+      await restartService('goflow2');
+    } catch (err) {
+      console.error('Failed to restart Flow service:', err);
+    }
+  };
 
   if (loading && !flows) {
     return (
       <div className="page">
         <div className="page-header">
-          <h1>🌐 NetFlow Analysis</h1>
+          <h1>🌐 Flow Analysis</h1>
           <p>Loading network flow data...</p>
         </div>
       </div>
@@ -20,7 +29,7 @@ const NetFlow = () => {
     return (
       <div className="page">
         <div className="page-header">
-          <h1>🌐 NetFlow Analysis</h1>
+          <h1>🌐 Flow Analysis</h1>
           <p className="error">Error loading flow data: {error}</p>
         </div>
       </div>
@@ -30,8 +39,21 @@ const NetFlow = () => {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>🌐 NetFlow Analysis</h1>
-        <p>Real-time network flow monitoring and analysis</p>
+        <div className="header-content">
+          <div>
+            <h1>🌐 Flow Analysis</h1>
+            <p>Real-time NetFlow, IPFIX, and sFlow monitoring and analysis</p>
+          </div>
+          <div className="restart-buttons">
+            <button
+              className="restart-btn"
+              onClick={handleRestartFlow}
+              disabled={restarting}
+            >
+              {restarting ? 'Restarting...' : 'Restart Flow Service'}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="stats-row">

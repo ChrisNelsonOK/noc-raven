@@ -6,7 +6,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { useSystemStatus } from './hooks/useApiService';
 
 // Lazy load components for better performance
-const Settings = lazy(() => import('./components/Settings'));
+const Settings = lazy(() => import('./components/Settings/Settings'));
 const NetFlow = lazy(() => import('./components/NetFlow/NetFlow'));
 const Syslog = lazy(() => import('./components/Syslog/Syslog'));
 const SNMP = lazy(() => import('./components/SNMP/SNMP'));
@@ -17,7 +17,7 @@ const Metrics = lazy(() => import('./components/Metrics/Metrics'));
 // Menu items for navigation
 const menuItems = [
   { path: '/', label: 'Dashboard', icon: '📊' },
-  { path: '/flows', label: 'NetFlow', icon: '🌊' },
+  { path: '/flows', label: 'Flow', icon: '🌊' },
   { path: '/syslog', label: 'Syslog', icon: '📝' },
   { path: '/snmp', label: 'SNMP', icon: '📡' },
   { path: '/windows', label: 'Windows Events', icon: '🪟' },

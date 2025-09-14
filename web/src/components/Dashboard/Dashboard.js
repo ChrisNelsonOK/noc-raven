@@ -25,7 +25,7 @@ const Dashboard = ({ systemStatus = {} }) => {
     dataBuffer: telemetryData.dataBuffer || '0B',
     cpuUsage: realMetrics.cpuUsage || status.cpu_usage || 0,
     memoryUsage: realMetrics.memoryUsage || status.memory_usage || 0,
-    diskUsage: realMetrics.diskUsage || 0
+    diskUsage: realMetrics.diskUsage || status.disk_usage || 0
   };
 
   if (loading && !status.status) {

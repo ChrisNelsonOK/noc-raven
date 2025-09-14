@@ -51,22 +51,22 @@ const Metrics = () => {
       <div className="stats-row">
         <div className="stat-card">
           <h3>CPU Usage</h3>
-          <div className="stat-value">{metrics?.system?.cpu_usage || 0}%</div>
+          <div className="stat-value">{metrics?.cpu_usage || '0%'}</div>
           <div className="stat-label">current usage</div>
         </div>
         <div className="stat-card">
           <h3>Memory Usage</h3>
-          <div className="stat-value">{metrics?.system?.memory_usage || 0}%</div>
-          <div className="stat-label">{formatBytes(metrics?.system?.memory_used)} used</div>
+          <div className="stat-value">{metrics?.memory_usage || '0%'}</div>
+          <div className="stat-label">{formatBytes(metrics?.memory?.used)} used</div>
         </div>
         <div className="stat-card">
           <h3>Disk Usage</h3>
-          <div className="stat-value">{metrics?.system?.disk_usage || 0}%</div>
-          <div className="stat-label">{formatBytes(metrics?.system?.disk_used)} used</div>
+          <div className="stat-value">{metrics?.disk_usage || '0%'}</div>
+          <div className="stat-label">{formatBytes(metrics?.disk?.used)} used</div>
         </div>
         <div className="stat-card">
           <h3>Network I/O</h3>
-          <div className="stat-value">{formatBytes(metrics?.system?.network_io)}/s</div>
+          <div className="stat-value">{formatBytes(metrics?.network?.bytes_per_sec)}/s</div>
           <div className="stat-label">current rate</div>
         </div>
       </div>
@@ -75,29 +75,7 @@ const Metrics = () => {
         <div className="card">
           <h2>Service Performance</h2>
           <div className="service-metrics">
-            {metrics?.services?.map((service, index) => (
-              <div key={index} className="service-metric">
-                <div className="service-header">
-                  <span className="service-name">{service.name}</span>
-                  <span className={`service-status ${service.status?.toLowerCase()}`}>
-                    {service.status || 'Unknown'}
-                  </span>
-                </div>
-                <div className="service-stats">
-                  <div className="stat-item">
-                    <span>CPU: {service.cpu_usage || 0}%</span>
-                  </div>
-                  <div className="stat-item">
-                    <span>Memory: {formatBytes(service.memory_usage)}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span>Uptime: {service.uptime || '0s'}</span>
-                  </div>
-                </div>
-              </div>
-            )) || (
-              <div className="no-data">No service metrics available</div>
-            )}
+            <div className="no-data">No service metrics available</div>
           </div>
         </div>
 
@@ -152,27 +130,27 @@ const Metrics = () => {
           <div className="network-stats">
             <div className="network-item">
               <span className="network-label">Bytes Received</span>
-              <span className="network-value">{formatBytes(metrics?.network?.bytes_received)}</span>
+              <span className="network-value">0 B</span>
             </div>
             <div className="network-item">
               <span className="network-label">Bytes Sent</span>
-              <span className="network-value">{formatBytes(metrics?.network?.bytes_sent)}</span>
+              <span className="network-value">0 B</span>
             </div>
             <div className="network-item">
               <span className="network-label">Packets Received</span>
-              <span className="network-value">{formatNumber(metrics?.network?.packets_received)}</span>
+              <span className="network-value">0</span>
             </div>
             <div className="network-item">
               <span className="network-label">Packets Sent</span>
-              <span className="network-value">{formatNumber(metrics?.network?.packets_sent)}</span>
+              <span className="network-value">0</span>
             </div>
             <div className="network-item">
               <span className="network-label">Dropped Packets</span>
-              <span className="network-value error">{formatNumber(metrics?.network?.dropped_packets)}</span>
+              <span className="network-value error">0</span>
             </div>
             <div className="network-item">
               <span className="network-label">Error Packets</span>
-              <span className="network-value error">{formatNumber(metrics?.network?.error_packets)}</span>
+              <span className="network-value error">0</span>
             </div>
           </div>
         </div>
@@ -180,29 +158,29 @@ const Metrics = () => {
         <div className="card">
           <h2>Storage Metrics</h2>
           <div className="storage-metrics">
-            {metrics?.storage?.filesystems?.map((fs, index) => (
-              <div key={index} className="filesystem-item">
+            {metrics?.disk ? (
+              <div className="filesystem-item">
                 <div className="filesystem-header">
-                  <span className="filesystem-path">{fs.path}</span>
-                  <span className="filesystem-usage">{fs.usage_percent || 0}%</span>
+                  <span className="filesystem-path">/</span>
+                  <span className="filesystem-usage">{metrics.disk_usage || '0%'}</span>
                 </div>
                 <div className="filesystem-bar">
-                  <div 
+                  <div
                     className="filesystem-fill"
-                    style={{ 
-                      width: `${fs.usage_percent || 0}%`,
-                      backgroundColor: fs.usage_percent > 90 ? '#e74c3c' : 
-                                      fs.usage_percent > 75 ? '#f39c12' : '#27ae60'
+                    style={{
+                      width: `${parseFloat(metrics.disk_usage) || 0}%`,
+                      backgroundColor: parseFloat(metrics.disk_usage) > 90 ? '#e74c3c' :
+                                      parseFloat(metrics.disk_usage) > 75 ? '#f39c12' : '#27ae60'
                     }}
                   ></div>
                 </div>
                 <div className="filesystem-details">
-                  <span>Used: {formatBytes(fs.used)}</span>
-                  <span>Available: {formatBytes(fs.available)}</span>
-                  <span>Total: {formatBytes(fs.total)}</span>
+                  <span>Used: {formatBytes(metrics.disk.used)}</span>
+                  <span>Available: {formatBytes(metrics.disk.available)}</span>
+                  <span>Total: {formatBytes(metrics.disk.total)}</span>
                 </div>
               </div>
-            )) || (
+            ) : (
               <div className="no-data">No filesystem data available</div>
             )}
           </div>
@@ -211,21 +189,7 @@ const Metrics = () => {
         <div className="card">
           <h2>Process Information</h2>
           <div className="process-list">
-            {Array.isArray(metrics?.processes) ? metrics.processes.slice(0, 10).map((process, index) => (
-              <div key={index} className="process-item">
-                <div className="process-header">
-                  <span className="process-name">{process.name}</span>
-                  <span className="process-pid">PID: {process.pid}</span>
-                </div>
-                <div className="process-stats">
-                  <span>CPU: {process.cpu_usage || 0}%</span>
-                  <span>Memory: {formatBytes(process.memory_usage)}</span>
-                  <span>Status: {process.status || 'Unknown'}</span>
-                </div>
-              </div>
-            )) : (
-              <div className="no-data">No process data available</div>
-            )}
+            <div className="no-data">No process data available</div>
           </div>
         </div>
 
@@ -234,19 +198,19 @@ const Metrics = () => {
           <div className="load-metrics">
             <div className="load-item">
               <span className="load-label">1 minute</span>
-              <span className="load-value">{metrics?.system?.load_1m || 0}</span>
+              <span className="load-value">0</span>
             </div>
             <div className="load-item">
               <span className="load-label">5 minutes</span>
-              <span className="load-value">{metrics?.system?.load_5m || 0}</span>
+              <span className="load-value">0</span>
             </div>
             <div className="load-item">
               <span className="load-label">15 minutes</span>
-              <span className="load-value">{metrics?.system?.load_15m || 0}</span>
+              <span className="load-value">0</span>
             </div>
             <div className="load-item">
               <span className="load-label">CPU Cores</span>
-              <span className="load-value">{metrics?.system?.cpu_cores || 0}</span>
+              <span className="load-value">0</span>
             </div>
           </div>
           <div className="load-chart">

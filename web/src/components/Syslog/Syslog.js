@@ -1,9 +1,18 @@
 import React from 'react';
-import { useApiData } from '../../hooks/useApiService';
+import { useApiData, useServiceManager } from '../../hooks/useApiService';
 import './Syslog.css';
 
 const Syslog = () => {
   const { data: logs, loading, error } = useApiData('/syslog', 3000);
+  const { restartService, loading: restarting } = useServiceManager();
+
+  const handleRestartService = async () => {
+    try {
+      await restartService('fluent-bit');
+    } catch (err) {
+      console.error('Failed to restart Syslog service:', err);
+    }
+  };
 
   if (loading && !logs) {
     return (
@@ -44,8 +53,19 @@ const Syslog = () => {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>📋 Syslog Monitor</h1>
-        <p>Real-time system log monitoring and analysis</p>
+        <div className="header-content">
+          <div>
+            <h1>📋 Syslog Monitor</h1>
+            <p>Real-time system log monitoring and analysis</p>
+          </div>
+          <button
+            className="restart-btn"
+            onClick={handleRestartService}
+            disabled={restarting}
+          >
+            {restarting ? 'Restarting...' : 'Restart Syslog Service'}
+          </button>
+        </div>
       </div>
 
       <div className="stats-row">

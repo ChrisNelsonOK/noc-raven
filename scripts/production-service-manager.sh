@@ -440,16 +440,17 @@ check_critical_ports() {
 # Stop a service gracefully
 stop_service() {
     local service=$1
-    
+
+    # First try to stop using tracked PID
     if [[ -n "${SERVICE_PIDS[$service]:-}" ]]; then
         local pid=${SERVICE_PIDS[$service]}
         log_info "Stopping $service (PID: $pid)"
-        
+
         if kill -0 $pid 2>/dev/null; then
             # Graceful termination
             kill -TERM $pid 2>/dev/null || true
             sleep 3
-            
+
             # Force kill if still running
             if kill -0 $pid 2>/dev/null; then
                 log_warn "Force killing $service"
@@ -457,11 +458,34 @@ stop_service() {
                 sleep 1
             fi
         fi
-        
+
         unset SERVICE_PIDS[$service]
-        SERVICE_STATUS[$service]="stopped"
-        log_info "$service stopped successfully"
     fi
+
+    # Also kill any processes by name (fallback for lost PID tracking)
+    case "$service" in
+        "fluent-bit")
+            pkill -f "fluent-bit.*fluent-bit-dynamic.conf" 2>/dev/null || true
+            ;;
+        "goflow2")
+            pkill -f "goflow2.*listen" 2>/dev/null || true
+            ;;
+        "telegraf")
+            pkill -f "telegraf.*telegraf-dynamic.conf" 2>/dev/null || true
+            ;;
+        "vector")
+            pkill -f "vector.*vector-minimal.toml" 2>/dev/null || true
+            ;;
+        "nginx")
+            pkill -f "nginx.*daemon off" 2>/dev/null || true
+            ;;
+    esac
+
+    # Wait a moment for processes to die
+    sleep 2
+
+    SERVICE_STATUS[$service]="stopped"
+    log_info "$service stopped successfully"
 }
 
 # Production shutdown procedure

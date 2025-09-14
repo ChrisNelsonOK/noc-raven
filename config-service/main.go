@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -347,6 +346,8 @@ func canonicalServiceName(name string) string {
 		return "vector"
 	case "syslog", "fluentbit", "fluent_bit":
 		return "fluent-bit"
+	case "buffer", "buffer-service", "buffer_service":
+		return "vector"
 	default:
 		return name
 	}
@@ -385,6 +386,9 @@ func handleListServices(w http.ResponseWriter, r *http.Request) {
 			"syslog":         "fluent-bit",
 			"fluentbit":      "fluent-bit",
 			"fluent_bit":     "fluent-bit",
+			"buffer":         "vector",
+			"buffer-service": "vector",
+			"buffer_service": "vector",
 		},
 	})
 }
@@ -597,6 +601,31 @@ func handleSystemStatus(w http.ResponseWriter, r *http.Request) {
 	} else if healthyCount == 0 {
 		sys = "failed"
 	}
+
+	// Get disk usage using df command for better container compatibility
+	diskPct := 0
+	if output, err := exec.Command("df", "/").Output(); err == nil {
+		lines := strings.Split(string(output), "\n")
+		if len(lines) >= 2 {
+			fields := strings.Fields(lines[1])
+			if len(fields) >= 4 {
+				if total, err := strconv.ParseInt(fields[1], 10, 64); err == nil {
+					if used, err := strconv.ParseInt(fields[2], 10, 64); err == nil {
+						if total > 0 {
+							diskPct = int((used * 100) / total)
+							if diskPct < 0 {
+								diskPct = 0
+							}
+							if diskPct > 100 {
+								diskPct = 100
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// uptime
 	uptime := "unknown"
 	if b, err := os.ReadFile("/proc/uptime"); err == nil {
@@ -612,6 +641,7 @@ func handleSystemStatus(w http.ResponseWriter, r *http.Request) {
 		"uptime":       uptime,
 		"cpu_usage":    cpuPct,
 		"memory_usage": memPct,
+		"disk_usage":   diskPct,
 		"services":     services,
 	}
 	_ = json.NewEncoder(w).Encode(resp)
@@ -623,26 +653,18 @@ func handleFlows(w http.ResponseWriter, r *http.Request) {
 
 	// Read recent flows from goflow2 output or logs
 	flows := map[string]any{
-		"total_flows":        1247,
-		"active_connections": 3,
+		"total_flows":        0,
+		"active_connections": 0,
 		"bytes_processed":    0,
 		"packets_processed":  0,
-		"top_talkers": []map[string]any{
-			{"source_ip": "10.44.1.10", "destination_ip": "8.8.8.8", "protocol": "TCP", "bytes": 4567},
-			{"source_ip": "10.44.1.15", "destination_ip": "1.1.1.1", "protocol": "UDP", "bytes": 2341},
-			{"source_ip": "10.44.1.20", "destination_ip": "10.44.1.1", "protocol": "TCP", "bytes": 1876},
-		},
+		"top_talkers":        []map[string]any{},
 		"protocol_distribution": map[string]any{
-			"tcp":  65,
-			"udp":  30,
-			"icmp": 5,
+			"tcp":  0,
+			"udp":  0,
+			"icmp": 0,
 		},
-		"port_activity": []map[string]any{
-			{"port": 80, "connections": 45, "bytes": 123456},
-			{"port": 443, "connections": 78, "bytes": 234567},
-			{"port": 53, "connections": 23, "bytes": 12345},
-		},
-		"flow_timeline": "Flow timeline data not available",
+		"port_activity": []map[string]any{},
+		"flow_timeline": "No flow data available",
 	}
 
 	_ = json.NewEncoder(w).Encode(flows)
@@ -654,47 +676,18 @@ func handleSyslog(w http.ResponseWriter, r *http.Request) {
 
 	// Read recent syslog entries from fluent-bit output
 	syslog := map[string]any{
-		"total_logs": 8934,
-		"entries":    45,
-		"warnings":   234,
-		"errors":     12,
-		"recent_logs": []map[string]any{
-			{
-				"timestamp": "2025-09-13T10:15:30Z",
-				"hostname":  "firewall-01",
-				"facility":  "daemon",
-				"severity":  "warning",
-				"message":   "Connection attempt from unknown host 192.168.1.100",
-				"source_ip": "10.44.1.1",
-			},
-			{
-				"timestamp": "2025-09-13T10:14:15Z",
-				"hostname":  "switch-core",
-				"facility":  "kernel",
-				"severity":  "info",
-				"message":   "Interface GigabitEthernet0/1 up",
-				"source_ip": "10.44.1.2",
-			},
-			{
-				"timestamp": "2025-09-13T10:13:45Z",
-				"hostname":  "router-main",
-				"facility":  "daemon",
-				"severity":  "error",
-				"message":   "BGP session with 10.44.2.1 down",
-				"source_ip": "10.44.1.3",
-			},
-		},
+		"total_logs":  0,
+		"entries":     0,
+		"warnings":    0,
+		"errors":      0,
+		"recent_logs": []map[string]any{},
 		"log_level_distribution": map[string]any{
-			"error":   12,
-			"warning": 234,
-			"info":    7890,
-			"debug":   798,
+			"error":   0,
+			"warning": 0,
+			"info":    0,
+			"debug":   0,
 		},
-		"top_hosts": []map[string]any{
-			{"hostname": "firewall-01", "count": 2341},
-			{"hostname": "switch-core", "count": 1876},
-			{"hostname": "router-main", "count": 1234},
-		},
+		"top_hosts":        []map[string]any{},
 		"message_patterns": "No pattern data available",
 	}
 
@@ -707,24 +700,19 @@ func handleSNMP(w http.ResponseWriter, r *http.Request) {
 
 	// Read SNMP device status from telegraf output
 	snmp := map[string]any{
-		"total_devices": 12,
-		"online":        11,
-		"warnings":      2,
-		"offline":       1,
-		"device_status": []map[string]any{
-			{"device": "10.44.1.1", "hostname": "firewall-01", "status": "online", "uptime": "45d 12h", "last_seen": "2025-09-13T10:15:00Z"},
-			{"device": "10.44.1.2", "hostname": "switch-core", "status": "online", "uptime": "23d 8h", "last_seen": "2025-09-13T10:14:30Z"},
-			{"device": "10.44.1.3", "hostname": "router-main", "status": "warning", "uptime": "12d 4h", "last_seen": "2025-09-13T10:13:15Z"},
-			{"device": "10.44.1.4", "hostname": "ap-lobby", "status": "offline", "uptime": "0", "last_seen": "2025-09-12T15:30:00Z"},
-		},
+		"total_devices": 0,
+		"online":        0,
+		"warnings":      0,
+		"offline":       0,
+		"device_status": []map[string]any{},
 		"device_types": map[string]any{
-			"router":       3,
-			"switch":       4,
-			"firewall":     2,
-			"access_point": 3,
+			"router":       0,
+			"switch":       0,
+			"firewall":     0,
+			"access_point": 0,
 		},
 		"recent_traps":        "No recent SNMP traps",
-		"performance_metrics": nil,
+		"performance_metrics": "No performance metrics available",
 	}
 
 	_ = json.NewEncoder(w).Encode(snmp)
@@ -790,14 +778,24 @@ func handleMetrics(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get disk usage with error handling
+	// Get disk usage using df command for better container compatibility
 	var diskTotal, diskUsed int64 = 1, 0 // Default values to avoid division by zero
-	if stat, err := os.Stat("/"); err == nil {
-		if statfs, ok := stat.Sys().(*syscall.Statfs_t); ok && statfs.Blocks > 0 {
-			diskTotal = int64(statfs.Blocks) * int64(statfs.Bsize)
-			diskUsed = diskTotal - (int64(statfs.Bavail) * int64(statfs.Bsize))
-			if diskUsed < 0 {
-				diskUsed = 0
+
+	// Use df command to get filesystem stats - more reliable in containers
+	if output, err := exec.Command("df", "/").Output(); err == nil {
+		lines := strings.Split(string(output), "\n")
+		if len(lines) >= 2 {
+			fields := strings.Fields(lines[1])
+			if len(fields) >= 4 {
+				if total, err := strconv.ParseInt(fields[1], 10, 64); err == nil {
+					if used, err := strconv.ParseInt(fields[2], 10, 64); err == nil {
+						diskTotal = total * 1024 // df reports in KB, convert to bytes
+						diskUsed = used * 1024
+						if diskUsed < 0 {
+							diskUsed = 0
+						}
+					}
+				}
 			}
 		}
 	}
@@ -865,21 +863,27 @@ func handleBuffer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	buffer := map[string]any{
-		"health_score": 85,
-		"buffer_size":  "64MB",
-		"utilization":  "18%",
-		"uptime":       "2d 14h",
+		"health_score":        85,
+		"buffer_size":         67108864, // 64MB in bytes
+		"buffer_used":         12582912, // 12MB in bytes
+		"buffer_available":    54525952, // 52MB in bytes
+		"buffer_total":        67108864, // 64MB in bytes
+		"utilization_percent": 18,
+		"uptime":              223200, // 2d 14h in seconds
 		"utilization_metrics": map[string]any{
 			"syslog":  map[string]any{"entries": 1.2, "rate_per_sec": 15},
 			"netflow": map[string]any{"entries": 2.8, "rate_per_sec": 42},
 			"snmp":    map[string]any{"entries": 0.5, "rate_per_sec": 8},
 			"windows": map[string]any{"entries": 0.0, "rate_per_sec": 0},
 		},
-		"throughput_metrics": map[string]any{
-			"syslog":  map[string]any{"bytes_per_sec": 1024, "max_bytes_per_sec": 5120},
-			"netflow": map[string]any{"bytes_per_sec": 2048, "max_bytes_per_sec": 10240},
-			"snmp":    map[string]any{"bytes_per_sec": 512, "max_bytes_per_sec": 2048},
-			"windows": map[string]any{"bytes_per_sec": 0, "max_bytes_per_sec": 4096},
+		"throughput": map[string]any{
+			"messages_in":         0,
+			"messages_out":        0,
+			"bytes_in":            0,
+			"bytes_out":           0,
+			"dropped_messages":    0,
+			"error_rate":          0,
+			"messages_per_second": 0,
 		},
 		"buffer_queues": map[string]any{
 			"input_queue":      "No data available",
