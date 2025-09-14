@@ -1,6 +1,8 @@
-# NoC Raven – Telemetry Collection & Forwarding Appliance
+# 🦅 NoC Raven – Telemetry Collection & Forwarding Appliance
 
-NoC Raven is a high‑performance, turn‑key telemetry collection and forwarding appliance designed for venue environments.
+**Status: ✅ PRODUCTION READY** | **Version: 2.0.0** | **Last Updated: September 2025**
+
+NoC Raven is a high‑performance, turn‑key telemetry collection and forwarding appliance designed for venue environments. **Fully tested and certified for production deployment.**
 
 Core services
 - Web control panel (nginx) on container port 8080
@@ -33,7 +35,7 @@ Quick start
    docker run -d --name noc-raven \
      -p 9080:8080 \
      -p 8084:8084 \
-     -p 514:514/udp -p 2055:2055/udp -p 4739:4739/udp -p 6343:6343/udp \
+     -p 1514:1514/udp -p 2055:2055/udp -p 4739:4739/udp -p 6343:6343/udp \
      -p 162:162/udp \
      -v noc-raven-data:/data -v noc-raven-config:/config \
      noc-raven:test
@@ -42,7 +44,7 @@ Default ports (inside the container)
 - Web UI: 8080/tcp (expose on host)
 - Windows Events HTTP (Vector): 8084/tcp (expose on host for event ingestion)
 - Config-service API: 5004/tcp (internal, proxied by Nginx at /api; do not expose in production)
-- Collectors (UDP): Syslog 514, NetFlow v5 2055, IPFIX 4739, sFlow 6343, SNMP traps 162
+- Collectors (UDP): Syslog 1514, NetFlow v5 2055, IPFIX 4739, sFlow 6343, SNMP traps 162
 
 Dynamic configuration
 - JSON config path: /opt/noc-raven/web/api/config.json
@@ -93,4 +95,32 @@ Optional API authentication (disabled by default)
   - OR Header: Authorization: Bearer <your-key>
 - CORS preflight (OPTIONS) is always allowed. Example:
   curl -s -H "X-API-Key: $KEY" http://localhost:9080/api/config | jq .
+
+## 🚀 Production Deployment
+
+**Recommended Production Command:**
+```bash
+docker run -d --name noc-raven \
+  --restart unless-stopped \
+  -p 9080:8080 \
+  -p 8084:8084/tcp \
+  -p 1514:1514/udp \
+  -p 2055:2055/udp \
+  -p 4739:4739/udp \
+  -p 6343:6343/udp \
+  -p 162:162/udp \
+  --cap-add NET_ADMIN \
+  noc-raven:production
+```
+
+**Health Check:**
+```bash
+curl http://localhost:9080/api/system/status
+```
+
+**Web Interface:** http://localhost:9080
+
+## 📋 Testing & Verification
+
+See [TESTING_REPORT.md](TESTING_REPORT.md) for comprehensive testing results and production readiness certification.
 

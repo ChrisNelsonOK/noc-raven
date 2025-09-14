@@ -44,7 +44,7 @@
     "syslog": {
       "enabled": false,
       "targetHost": "",
-      "targetPort": 514,
+      "targetPort": 1514,
       "protocol": "UDP",
       "format": "RFC3164"
     },

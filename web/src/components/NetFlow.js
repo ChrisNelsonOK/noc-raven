@@ -265,7 +265,7 @@ const NetFlow = () => {
                 </tr>
               </thead>
               <tbody>
-                {flows.slice(-20).map((flow, index) => (
+                {Array.isArray(flows) ? flows.slice(-20).map((flow, index) => (
                   <tr key={index}>
                     <td>{formatTimestamp(flow.TimeReceived || Date.now() / 1000)}</td>
                     <td>{flow.SrcIP || flow.srcIP || 'N/A'}</td>
@@ -274,10 +274,14 @@ const NetFlow = () => {
                     <td>{formatBytes(flow.Bytes || flow.bytes)}</td>
                     <td>{flow.Packets || flow.packets || 0}</td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan="6" className="no-data">No NetFlow data available</td>
+                  </tr>
+                )}
               </tbody>
             </table>
-            {flows.length === 0 && (
+            {(!Array.isArray(flows) || flows.length === 0) && (
               <div className="no-data">
                 <p>No NetFlow data available</p>
                 <small>

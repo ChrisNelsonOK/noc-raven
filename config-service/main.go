@@ -24,11 +24,10 @@ type Config map[string]any
 
 var (
 	// Paths are overridable via environment for testing or customization
-	configPath    = envDefault("NOC_RAVEN_CONFIG_PATH", "/opt/noc-raven/web/api/config.json")
-	backupDir     = envDefault("NOC_RAVEN_BACKUP_DIR", "/opt/noc-raven/backups")
-	logPath       = envDefault("NOC_RAVEN_LOG_PATH", "/var/log/noc-raven/config-service.log")
-	restartScript = envDefault("NOC_RAVEN_RESTART_SCRIPT", "/opt/noc-raven/scripts/production-service-manager.sh")
-	apiKey        = strings.TrimSpace(os.Getenv("NOC_RAVEN_API_KEY")) // optional API key; if set, config endpoints require it
+	configPath = envDefault("NOC_RAVEN_CONFIG_PATH", "/opt/noc-raven/web/api/config.json")
+	backupDir  = envDefault("NOC_RAVEN_BACKUP_DIR", "/opt/noc-raven/backups")
+	logPath    = envDefault("NOC_RAVEN_LOG_PATH", "/var/log/noc-raven/config-service.log")
+	apiKey     = strings.TrimSpace(os.Getenv("NOC_RAVEN_API_KEY")) // optional API key; if set, config endpoints require it
 
 	mu sync.Mutex // serialize read/write of config file
 	// restartSvc allows tests to stub service restarts
@@ -186,110 +185,64 @@ func getNestedBool(cfg Config, path ...string) (bool, bool) {
 func restartService(name string) error {
 	logger.WithField("service", name).Info("Initiating service restart")
 
-	// 1) If running under production-service-manager (PID 1), trigger restart by killing the process.
-	//    This lets the running manager (PID 1) handle a clean restart with its own tracking.
-	if isPID1ProductionManager() {
-		if err := killServiceProcess(name); err == nil {
-			logger.WithField("service", name).Info("Killed service process to trigger restart")
-			return nil
-		}
-		// If kill failed, continue with other fallbacks
-		logger.WithField("service", name).Warn("Failed to kill service process, trying fallback methods")
-	}
-	// 2) Prefer supervisor if available
-	if _, err := exec.LookPath("supervisorctl"); err == nil {
-		cmd := exec.Command("supervisorctl", "restart", name)
+	// Check if we're running under production-service-manager (PID 1 or as child process)
+	productionScript := "/opt/noc-raven/scripts/production-service-manager.sh"
+	if _, err := os.Stat(productionScript); err == nil {
+		// Use production service manager for restart
+		cmd := exec.Command("bash", productionScript, "restart", name)
+		cmd.Env = append(os.Environ(), "NOC_RAVEN_HOME=/opt/noc-raven")
 		out, err := cmd.CombinedOutput()
 		if err == nil {
 			logger.WithFields(logrus.Fields{
 				"service": name,
 				"output":  strings.TrimSpace(string(out)),
-			}).Info("Service restarted successfully via supervisorctl")
+			}).Info("Service restart successful via production service manager")
 			return nil
 		}
 		logger.WithFields(logrus.Fields{
 			"service": name,
 			"error":   err,
 			"output":  string(out),
-		}).Warn("Supervisorctl restart failed")
-		// Try stop/start for services that may not support direct restart
-		_ = exec.Command("supervisorctl", "stop", name).Run()
-		out, err = exec.Command("supervisorctl", "start", name).CombinedOutput()
-		if err == nil {
-			logger.WithFields(logrus.Fields{"service": name, "output": strings.TrimSpace(string(out))}).Info("Service started successfully via supervisorctl")
-			return nil
-		}
-		logger.WithFields(logrus.Fields{"service": name, "error": err, "output": string(out)}).Warn("Supervisorctl start failed")
+		}).Warn("Production service manager restart failed, trying fallback")
 	}
-	// 3) Fallback to production-service-manager.sh if present (only when not PID1)
-	if _, err := os.Stat(restartScript); err == nil {
-		cmd := exec.Command("bash", restartScript, "restart", name)
-		out, err := cmd.CombinedOutput()
-		if err == nil {
-			logger.WithFields(logrus.Fields{
-				"service": name,
-				"output":  strings.TrimSpace(string(out)),
-			}).Info("Service restarted successfully via service-manager")
-			return nil
-		}
-		logger.WithFields(logrus.Fields{
-			"service": name,
-			"error":   err,
-			"output":  string(out),
-		}).Warn("Service-manager restart failed")
-	}
-	// 4) Last resort: try legacy script if available
-	legacy := "/opt/noc-raven/scripts/service-manager.sh"
-	if _, err := os.Stat(legacy); err == nil {
-		cmd := exec.Command("bash", legacy, "restart", name)
-		out, err := cmd.CombinedOutput()
-		if err == nil {
-			logger.WithFields(logrus.Fields{
-				"service": name,
-				"output":  strings.TrimSpace(string(out)),
-			}).Info("Service restarted successfully via legacy service-manager")
-			return nil
-		}
-		logger.WithFields(logrus.Fields{
-			"service": name,
-			"error":   err,
-			"output":  string(out),
-		}).Warn("Legacy service-manager restart failed")
-	}
-	return fmt.Errorf("no restart method succeeded for %s", name)
-}
 
-// isPID1ProductionManager returns true if PID 1 is the production-service-manager
-func isPID1ProductionManager() bool {
-	b, err := os.ReadFile("/proc/1/cmdline")
-	if err != nil {
-		return false
-	}
-	return bytes.Contains(b, []byte("production-service-manager.sh"))
-}
-
-// killServiceProcess attempts to gracefully terminate a service process by name
-func killServiceProcess(service string) error {
-	proc := service
-	switch service {
-	case "http-api":
-		proc = "config-service"
-	}
-	// Special-case nginx: prefer reload to avoid dropping proxy mid-request
-	if service == "nginx" {
-		if _, err := exec.LookPath("nginx"); err == nil {
-			cmd := exec.Command("nginx", "-s", "reload")
-			if out, err := cmd.CombinedOutput(); err == nil {
-				logger.WithField("output", strings.TrimSpace(string(out))).Info("Nginx reloaded successfully")
-				return nil
-			}
+	// Fallback: try systemctl replacement (supervisorctl wrapper)
+	systemctlScript := "/opt/noc-raven/scripts/systemctl-replacement.sh"
+	if _, err := os.Stat(systemctlScript); err == nil {
+		cmd := exec.Command("bash", systemctlScript, "restart", name)
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			logger.WithFields(logrus.Fields{
+				"service": name,
+				"output":  strings.TrimSpace(string(out)),
+			}).Info("Service restart successful via systemctl replacement")
+			return nil
 		}
+		logger.WithFields(logrus.Fields{
+			"service": name,
+			"error":   err,
+			"output":  string(out),
+		}).Warn("Systemctl replacement also failed")
 	}
-	// Try TERM first, then KILL if needed
-	_ = exec.Command("pkill", "-TERM", "-x", proc).Run()
-	time.Sleep(2 * time.Second)
-	_ = exec.Command("pkill", "-KILL", "-x", proc).Run()
-	return nil
+
+	// Final fallback: direct supervisorctl (if available)
+	cmd := exec.Command("supervisorctl", "restart", name)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		logger.WithFields(logrus.Fields{
+			"service": name,
+			"output":  strings.TrimSpace(string(out)),
+		}).Info("Service restart successful via direct supervisorctl")
+		return nil
+	}
+
+	logger.WithFields(logrus.Fields{
+		"service": name,
+		"error":   err,
+		"output":  string(out),
+	}).Error("All service restart methods failed")
+
+	return fmt.Errorf("service restart failed for %s: %v", name, err)
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -771,7 +724,7 @@ func handleSNMP(w http.ResponseWriter, r *http.Request) {
 			"access_point": 3,
 		},
 		"recent_traps":        "No recent SNMP traps",
-		"performance_metrics": "No performance data available",
+		"performance_metrics": nil,
 	}
 
 	_ = json.NewEncoder(w).Encode(snmp)

@@ -68,7 +68,7 @@ const NetFlow = () => {
                 </tr>
               </thead>
               <tbody>
-                {flows?.flows?.slice(0, 10).map((flow, index) => (
+                {Array.isArray(flows?.flows) ? flows.flows.slice(0, 10).map((flow, index) => (
                   <tr key={index}>
                     <td>{flow.src_ip || 'N/A'}</td>
                     <td>{flow.dst_ip || 'N/A'}</td>
@@ -76,7 +76,7 @@ const NetFlow = () => {
                     <td>{flow.bytes?.toLocaleString() || 0}</td>
                     <td>{flow.packets?.toLocaleString() || 0}</td>
                   </tr>
-                )) || (
+                )) : (
                   <tr>
                     <td colSpan="5" className="no-data">No flow data available</td>
                   </tr>

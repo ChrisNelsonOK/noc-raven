@@ -272,7 +272,7 @@ const Syslog = () => {
             Showing {filteredLogs.length} of {logs.length} messages
           </div>
           <div className="logs-container">
-            {filteredLogs.slice(-50).reverse().map((log, index) => (
+            {Array.isArray(filteredLogs) ? filteredLogs.slice(-50).reverse().map((log, index) => (
               <div key={index} className="log-entry">
                 <div className="log-header">
                   <span className="log-time">{formatTimestamp(log.timestamp)}</span>
@@ -287,8 +287,12 @@ const Syslog = () => {
                 </div>
                 <div className="log-message">{log.message}</div>
               </div>
-            ))}
-            {filteredLogs.length === 0 && (
+            )) : (
+              <div className="no-data">
+                <p>No syslog data available</p>
+              </div>
+            )}
+            {Array.isArray(filteredLogs) && filteredLogs.length === 0 && (
               <div className="no-data">
                 <p>No matching syslog messages</p>
                 <small>

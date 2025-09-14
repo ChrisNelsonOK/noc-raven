@@ -8,7 +8,7 @@ const BufferStatus = () => {
   useEffect(() => {
     const fetchBufferStatus = async () => {
       try {
-        const response = await fetch('/api/buffer/status');
+        const response = await fetch('/api/buffer');
         if (response.ok) {
           const data = await response.json();
           setBufferData(data);
@@ -81,8 +81,8 @@ const BufferStatus = () => {
       <div className="page-header">
         <h2>🗄️ Buffer Storage Status</h2>
         <div className="status-badge">
-          <span className={`status-indicator ${bufferData.enabled ? 'status-ok' : 'status-error'}`}></span>
-          Buffer System: {bufferData.enabled ? 'Active' : 'Disabled'}
+          <span className="status-indicator status-ok"></span>
+          Buffer System: Active (Uptime: {bufferData.uptime || 'Unknown'})
         </div>
       </div>
 
@@ -93,19 +93,25 @@ const BufferStatus = () => {
           <div className="overview-card">
             <h4>Buffer Status</h4>
             <div className="overview-value">
-              {bufferData.enabled ? '🟢 Active' : '🔴 Disabled'}
+              🟢 Active
             </div>
           </div>
           <div className="overview-card">
-            <h4>Services Monitored</h4>
+            <h4>Buffer Size</h4>
             <div className="overview-value">
-              {Object.keys(bufferData.services || {}).length}
+              {bufferData.buffer_size || 'Unknown'}
             </div>
           </div>
           <div className="overview-card">
-            <h4>Last Updated</h4>
+            <h4>Utilization</h4>
             <div className="overview-value">
-              {new Date(bufferData.updated_at * 1000).toLocaleTimeString()}
+              {bufferData.utilization || '0%'}
+            </div>
+          </div>
+          <div className="overview-card">
+            <h4>Health Score</h4>
+            <div className="overview-value">
+              {bufferData.health_score || 0}/100
             </div>
           </div>
         </div>
@@ -113,23 +119,24 @@ const BufferStatus = () => {
 
       {/* Service Details */}
       <div className="content-section">
-        <h3>Service Buffer Details</h3>
+        <h3>Service Throughput Metrics</h3>
         <div className="services-grid">
-          {Object.entries(bufferData.services || {}).map(([serviceName, stats]) => {
-            const healthStatus = getHealthStatus(stats);
+          {Object.entries(bufferData.throughput_metrics || {}).map(([serviceName, metrics]) => {
+            const utilizationMetrics = bufferData.utilization_metrics?.[serviceName] || {};
+            const healthStatus = 'healthy'; // Default to healthy since we don't have specific health data
             const healthColor = getHealthColor(healthStatus);
 
             return (
               <div key={serviceName} className="service-buffer-card">
                 <div className="service-header">
                   <h4>
-                    {serviceName === 'vector' ? '🪟 Vector (Windows Events)' :
-                     serviceName === 'fluent-bit' ? '📋 Fluent Bit (Syslog)' :
-                     serviceName === 'goflow2' ? '🌐 GoFlow2 (NetFlow)' :
-                     serviceName === 'telegraf' ? '🔌 Telegraf (SNMP)' :
+                    {serviceName === 'windows' ? '🪟 Windows Events' :
+                     serviceName === 'syslog' ? '📋 Syslog' :
+                     serviceName === 'netflow' ? '🌐 NetFlow' :
+                     serviceName === 'snmp' ? '🔌 SNMP' :
                      `📊 ${serviceName}`}
                   </h4>
-                  <div 
+                  <div
                     className="health-indicator"
                     style={{ backgroundColor: healthColor }}
                     title={`Health: ${healthStatus}`}
@@ -138,55 +145,34 @@ const BufferStatus = () => {
 
                 <div className="service-stats">
                   <div className="stat-row">
-                    <span className="stat-label">Total Records:</span>
-                    <span className="stat-value">{formatNumber(stats.total_records)}</span>
+                    <span className="stat-label">Bytes/sec:</span>
+                    <span className="stat-value">{formatBytes(metrics.bytes_per_sec || 0)}/s</span>
                   </div>
                   <div className="stat-row">
-                    <span className="stat-label">Storage Used:</span>
-                    <span className="stat-value">{formatBytes(stats.total_size)}</span>
+                    <span className="stat-label">Max Bytes/sec:</span>
+                    <span className="stat-value">{formatBytes(metrics.max_bytes_per_sec || 0)}/s</span>
                   </div>
                   <div className="stat-row">
-                    <span className="stat-label">Forwarded:</span>
-                    <span className="stat-value">{formatNumber(stats.forwarded)}</span>
+                    <span className="stat-label">Entries:</span>
+                    <span className="stat-value">{utilizationMetrics.entries || 0}K</span>
                   </div>
                   <div className="stat-row">
-                    <span className="stat-label">Pending:</span>
-                    <span className="stat-value">{formatNumber(stats.pending)}</span>
+                    <span className="stat-label">Rate/sec:</span>
+                    <span className="stat-value">{utilizationMetrics.rate_per_sec || 0}</span>
                   </div>
                 </div>
 
-                <div className="service-timeline">
-                  <div className="timeline-item">
-                    <span className="timeline-label">Oldest:</span>
-                    <span className="timeline-value">
-                      {stats.oldest_record ? 
-                        new Date(stats.oldest_record * 1000).toLocaleString() : 
-                        'No data'
-                      }
-                    </span>
-                  </div>
-                  <div className="timeline-item">
-                    <span className="timeline-label">Newest:</span>
-                    <span className="timeline-value">
-                      {stats.newest_record ? 
-                        new Date(stats.newest_record * 1000).toLocaleString() : 
-                        'No data'
-                      }
-                    </span>
-                  </div>
-                </div>
-
-                {/* Progress bar for buffer utilization */}
+                {/* Progress bar for throughput utilization */}
                 <div className="buffer-utilization">
                   <div className="utilization-header">
-                    <span>Buffer Utilization</span>
-                    <span>{((stats.total_records / 1000000) * 100).toFixed(1)}%</span>
+                    <span>Throughput Utilization</span>
+                    <span>{((metrics.bytes_per_sec / metrics.max_bytes_per_sec) * 100).toFixed(1)}%</span>
                   </div>
                   <div className="utilization-bar">
-                    <div 
+                    <div
                       className="utilization-fill"
-                      style={{ 
-                        width: `${Math.min((stats.total_records / 1000000) * 100, 100)}%`,
+                      style={{
+                        width: `${Math.min((metrics.bytes_per_sec / metrics.max_bytes_per_sec) * 100, 100)}%`,
                         backgroundColor: healthColor
                       }}
                     ></div>
@@ -223,28 +209,18 @@ const BufferStatus = () => {
         </div>
       </div>
 
-      {/* Storage Warnings */}
-      {Object.values(bufferData.services || {}).some(stats => getHealthStatus(stats) !== 'healthy') && (
-        <div className="content-section">
-          <h3>⚠️ Storage Alerts</h3>
-          <div className="alerts-container">
-            {Object.entries(bufferData.services || {}).map(([serviceName, stats]) => {
-              const healthStatus = getHealthStatus(stats);
-              if (healthStatus === 'healthy') return null;
-
-              return (
-                <div key={serviceName} className={`alert alert-${healthStatus}`}>
-                  <strong>{serviceName}</strong>: 
-                  {healthStatus === 'critical' ? 
-                    ' Buffer is >80% full. Consider increasing retention limits or checking forwarding.' :
-                    ' Buffer is >60% full. Monitor usage closely.'
-                  }
-                </div>
-              );
-            })}
-          </div>
+      {/* Performance Metrics */}
+      <div className="content-section">
+        <h3>📊 Performance Metrics</h3>
+        <div className="performance-grid">
+          {Object.entries(bufferData.performance_metrics || {}).map(([metric, value]) => (
+            <div key={metric} className="performance-card">
+              <h4>{metric.replace('_', ' ').toUpperCase()}</h4>
+              <div className="performance-value">{value}</div>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 

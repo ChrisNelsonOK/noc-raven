@@ -394,9 +394,10 @@ restart_service_intelligent() {
 # Critical port monitoring
 check_critical_ports() {
     local critical_ports=(
-        "5001:tcp"  # HTTP API server
+        "5004:tcp"  # HTTP API server
         "8080:tcp"  # Nginx web interface
         "8084:tcp"  # Vector API
+        "1514:udp"  # Syslog
         "2055:udp"  # NetFlow
         "4739:udp"  # IPFIX
         "6343:udp"  # sFlow

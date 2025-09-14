@@ -139,7 +139,7 @@ const SNMP = () => {
         <div className="card">
           <h2>Recent Traps</h2>
           <div className="traps-list">
-            {devices?.recent_traps?.slice(0, 10).map((trap, index) => (
+            {Array.isArray(devices?.recent_traps) ? devices.recent_traps.slice(0, 10).map((trap, index) => (
               <div key={index} className={`trap-item severity-${trap.severity || 'info'}`}>
                 <div className="trap-header">
                   <span className="trap-source">{trap.source || 'Unknown'}</span>
@@ -149,7 +149,7 @@ const SNMP = () => {
                 </div>
                 <div className="trap-message">{trap.message || trap.oid || 'No message'}</div>
               </div>
-            )) || (
+            )) : (
               <div className="no-data">No recent SNMP traps</div>
             )}
           </div>
@@ -158,12 +158,14 @@ const SNMP = () => {
         <div className="card">
           <h2>Performance Metrics</h2>
           <div className="metrics-list">
-            {devices?.performance_metrics ? Object.entries(devices.performance_metrics).map(([metric, value]) => (
-              <div key={metric} className="metric-item">
-                <span className="metric-name">{metric.replace(/_/g, ' ').toUpperCase()}</span>
-                <span className="metric-value">{value}</span>
-              </div>
-            )) : (
+            {devices?.performance_metrics && devices.performance_metrics !== null && typeof devices.performance_metrics === 'object' && !Array.isArray(devices.performance_metrics) && Object.keys(devices.performance_metrics).length > 0 ? (
+              Object.entries(devices.performance_metrics).map(([metric, value]) => (
+                <div key={metric} className="metric-item">
+                  <span className="metric-name">{metric.replace(/_/g, ' ').toUpperCase()}</span>
+                  <span className="metric-value">{value}</span>
+                </div>
+              ))
+            ) : (
               <div className="no-data">No performance metrics available</div>
             )}
           </div>

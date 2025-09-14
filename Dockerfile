@@ -136,6 +136,8 @@ RUN apk update && apk add --no-cache \
     iotop \
     # Process management
     supervisor \
+    python3 \
+    py3-pip \
     # Development/debugging
     strace \
     ngrep \
@@ -230,13 +232,13 @@ RUN chown -R nocraven:nocraven ${NOC_RAVEN_HOME} ${DATA_PATH} ${CONFIG_PATH} /va
     chmod -R 755 ${CONFIG_PATH}
 
 # Expose ports
-# Syslog: 514/udp
+# Syslog: 1514/udp
 # NetFlow: 2055/udp, 4739/udp
 # sFlow: 6343/udp
 # SNMP Traps: 162/udp
 # Vector HTTP: 8084/tcp
 # Web Panel: 8080/tcp
-EXPOSE 514/udp 2055/udp 4739/udp 6343/udp 162/udp 8084/tcp 8080/tcp
+EXPOSE 1514/udp 2055/udp 4739/udp 6343/udp 162/udp 8084/tcp 8080/tcp
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

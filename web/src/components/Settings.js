@@ -209,7 +209,7 @@ setError(`❌ Failed to restart ${serviceName}: ${err.message}`);
             Port:
             <input
               type="number"
-              value={config.collection?.syslog?.port || 514}
+              value={config.collection?.syslog?.port || 1514}
               onChange={(e) => updateConfig('collection.syslog.port', parseInt(e.target.value))}
               min="1"
               max="65535"

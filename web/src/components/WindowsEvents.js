@@ -132,13 +132,15 @@ const WindowsEvents = () => {
               </div>
               <div className="top-events">
                 <h5>Top Event Types:</h5>
-                {host.top_events?.slice(0, 3).map((event, idx) => (
+                {Array.isArray(host.top_events) ? host.top_events.slice(0, 3).map((event, idx) => (
                   <div key={idx} className="event-type">
                     <span className="event-id">ID {event.id}</span>
                     <span className="event-count">({event.count})</span>
                     <span className="event-desc">{event.description}</span>
                   </div>
-                ))}
+                )) : (
+                  <div className="no-data">No event data available</div>
+                )}
               </div>
             </div>
           ))}
@@ -157,7 +159,7 @@ const WindowsEvents = () => {
             <span>Channel</span>
             <span>Message</span>
           </div>
-          {filteredEvents?.slice(0, 10).map((event, idx) => (
+          {Array.isArray(filteredEvents) ? filteredEvents.slice(0, 10).map((event, idx) => (
             <div key={idx} className="table-row">
               <span className="event-time">
                 {new Date(event.timestamp).toLocaleTimeString()}
@@ -170,7 +172,11 @@ const WindowsEvents = () => {
               <span className="event-channel">{event.channel}</span>
               <span className="event-message">{event.message}</span>
             </div>
-          ))}
+          )) : (
+            <div className="table-row no-data">
+              <span colSpan="6">No Windows Events data available</span>
+            </div>
+          )}
         </div>
       </div>
 

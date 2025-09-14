@@ -105,14 +105,14 @@ interface_status() {
 # Scan for telemetry ports
 port_scan() {
     local target="${1:-localhost}"
-    local ports=(514 2055 4739 6343 162 8084 8080)
-    
+    local ports=(1514 2055 4739 6343 162 8084 8080)
+
     log "${BLUE}=== Telemetry Port Scan: $target ===${NC}"
-    
+
     for port in "${ports[@]}"; do
         local service=""
         case $port in
-            514)  service="Syslog" ;;
+            1514) service="Syslog" ;;
             2055) service="NetFlow" ;;
             4739) service="NetFlow/IPFIX" ;;
             6343) service="sFlow" ;;

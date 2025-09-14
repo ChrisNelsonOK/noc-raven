@@ -12,7 +12,7 @@ LOG_FILE="/var/log/noc-raven/port-manager.log"
 
 # Port mapping configuration
 declare -A SERVICE_PORTS=(
-    ["fluent-bit"]="514"
+    ["fluent-bit"]="1514"
     ["goflow2-netflow"]="2055"
     ["goflow2-ipfix"]="4739"
     ["goflow2-sflow"]="6343"
@@ -24,7 +24,7 @@ declare -A SERVICE_PORTS=(
 )
 
 declare -A PORT_PROTOCOLS=(
-    ["514"]="udp"
+    ["1514"]="udp"
     ["2055"]="udp"
     ["4739"]="udp"
     ["6343"]="udp"

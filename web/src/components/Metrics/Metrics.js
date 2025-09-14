@@ -211,7 +211,7 @@ const Metrics = () => {
         <div className="card">
           <h2>Process Information</h2>
           <div className="process-list">
-            {metrics?.processes?.slice(0, 10).map((process, index) => (
+            {Array.isArray(metrics?.processes) ? metrics.processes.slice(0, 10).map((process, index) => (
               <div key={index} className="process-item">
                 <div className="process-header">
                   <span className="process-name">{process.name}</span>
@@ -223,7 +223,7 @@ const Metrics = () => {
                   <span>Status: {process.status || 'Unknown'}</span>
                 </div>
               </div>
-            )) || (
+            )) : (
               <div className="no-data">No process data available</div>
             )}
           </div>

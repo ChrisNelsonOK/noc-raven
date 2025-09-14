@@ -218,14 +218,14 @@ const BufferStatus = () => {
         <div className="card">
           <h2>Recent Activity</h2>
           <div className="activity-log">
-            {bufferData?.recent_activity?.slice(0, 20).map((activity, index) => (
+            {Array.isArray(bufferData?.recent_activity) ? bufferData.recent_activity.slice(0, 20).map((activity, index) => (
               <div key={index} className={`activity-item ${activity.level?.toLowerCase()}`}>
                 <span className="activity-time">
                   {activity.timestamp ? new Date(activity.timestamp).toLocaleTimeString() : 'N/A'}
                 </span>
                 <span className="activity-message">{activity.message || 'No message'}</span>
               </div>
-            )) || (
+            )) : (
               <div className="no-data">No recent activity</div>
             )}
           </div>

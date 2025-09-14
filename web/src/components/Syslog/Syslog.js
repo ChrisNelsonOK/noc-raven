@@ -82,7 +82,7 @@ const Syslog = () => {
                 </tr>
               </thead>
               <tbody>
-                {logs?.logs?.slice(0, 50).map((log, index) => (
+                {Array.isArray(logs?.logs) ? logs.logs.slice(0, 50).map((log, index) => (
                   <tr key={index} className={`log-row severity-${getSeverityClass(log.severity)}`}>
                     <td className="timestamp">
                       {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}
@@ -94,7 +94,7 @@ const Syslog = () => {
                     <td className="facility">{log.facility || 'system'}</td>
                     <td className="message">{log.message || log.msg || 'No message'}</td>
                   </tr>
-                )) || (
+                )) : (
                   <tr>
                     <td colSpan="5" className="no-data">No log data available</td>
                   </tr>
@@ -127,7 +127,7 @@ const Syslog = () => {
         <div className="card">
           <h2>Top Hosts</h2>
           <div className="host-stats">
-            {logs?.top_hosts ? logs.top_hosts.slice(0, 10).map((host, index) => (
+            {Array.isArray(logs?.top_hosts) ? logs.top_hosts.slice(0, 10).map((host, index) => (
               <div key={index} className="host-item">
                 <span className="host-name">{host.hostname || host.host || 'Unknown'}</span>
                 <span className="host-count">{host.count?.toLocaleString() || 0}</span>
@@ -141,7 +141,7 @@ const Syslog = () => {
         <div className="card">
           <h2>Message Patterns</h2>
           <div className="pattern-stats">
-            {logs?.common_patterns ? logs.common_patterns.slice(0, 8).map((pattern, index) => (
+            {Array.isArray(logs?.common_patterns) ? logs.common_patterns.slice(0, 8).map((pattern, index) => (
               <div key={index} className="pattern-item">
                 <div className="pattern-text">{pattern.pattern || 'Unknown pattern'}</div>
                 <div className="pattern-count">{pattern.count?.toLocaleString() || 0} occurrences</div>
