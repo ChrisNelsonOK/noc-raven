@@ -431,7 +431,7 @@ setError(`❌ Failed to restart ${serviceName}: ${err.message}`);
         <label>
           <input
             type="checkbox"
-            checked={config.forwarding?.enabled || false}
+            checked={config.forwarding?.enabled !== undefined ? config.forwarding.enabled : true}
             onChange={(e) => updateConfig('forwarding.enabled', e.target.checked)}
           />
           Enable Data Forwarding
@@ -747,7 +747,7 @@ setError(`❌ Failed to restart ${serviceName}: ${err.message}`);
           <label>
             <input
               type="checkbox"
-              checked={config.performance?.enable_compression || false}
+              checked={config.performance?.enable_compression !== undefined ? config.performance.enable_compression : true}
               onChange={(e) => updateConfig('performance.enable_compression', e.target.checked)}
             />
             Enable Data Compression
@@ -755,7 +755,7 @@ setError(`❌ Failed to restart ${serviceName}: ${err.message}`);
           <label>
             <input
               type="checkbox"
-              checked={config.performance?.enable_deduplication || false}
+              checked={config.performance?.enable_deduplication !== undefined ? config.performance.enable_deduplication : true}
               onChange={(e) => updateConfig('performance.enable_deduplication', e.target.checked)}
             />
             Enable Deduplication
@@ -774,7 +774,7 @@ setError(`❌ Failed to restart ${serviceName}: ${err.message}`);
           <label>
             <input
               type="checkbox"
-              checked={config.collection?.windows?.enabled || false}
+              checked={config.collection?.windows?.enabled !== undefined ? config.collection.windows.enabled : true}
               onChange={(e) => updateConfig('collection.windows.enabled', e.target.checked)}
             />
             Enable Windows Events Collector
@@ -785,7 +785,7 @@ setError(`❌ Failed to restart ${serviceName}: ${err.message}`);
             HTTP Listen Port:
             <input
               type="number"
-              value={config.collection?.windows?.port || 8085}
+              value={config.collection?.windows?.port || 8084}
               onChange={(e) => updateConfig('collection.windows.port', parseInt(e.target.value))}
               min="1024"
               max="65535"
@@ -812,7 +812,7 @@ setError(`❌ Failed to restart ${serviceName}: ${err.message}`);
           <label>
             <input
               type="checkbox"
-              checked={config.forwarding?.windows?.enabled || false}
+              checked={config.forwarding?.windows?.enabled !== undefined ? config.forwarding.windows.enabled : true}
               onChange={(e) => updateConfig('forwarding.windows.enabled', e.target.checked)}
             />
             Enable Windows Events Forwarding

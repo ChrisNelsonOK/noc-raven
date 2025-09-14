@@ -47,10 +47,30 @@ class ApiService {
   async restartService(serviceName) {
     try {
       const response = await this.postData(`/services/${serviceName}/restart`, {});
-      this.showToast('success', `Service ${serviceName} restarted successfully`);
+
+      // Map technical service names to user-friendly display names
+      const displayNames = {
+        'vector': 'Windows Events',
+        'fluent-bit': 'Syslog',
+        'goflow2': 'Flow',
+        'telegraf': 'SNMP',
+        'buffer-service': 'Buffer'
+      };
+
+      const displayName = displayNames[serviceName] || serviceName;
+      this.showToast('success', `Service ${displayName} restarted successfully`);
       return response;
     } catch (error) {
-      this.showToast('error', `Failed to restart ${serviceName}: ${error.message}`);
+      const displayNames = {
+        'vector': 'Windows Events',
+        'fluent-bit': 'Syslog',
+        'goflow2': 'Flow',
+        'telegraf': 'SNMP',
+        'buffer-service': 'Buffer'
+      };
+
+      const displayName = displayNames[serviceName] || serviceName;
+      this.showToast('error', `Failed to restart ${displayName}: ${error.message}`);
       throw error;
     }
   }

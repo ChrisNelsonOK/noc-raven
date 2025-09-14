@@ -52,12 +52,12 @@ const WindowsEvents = () => {
       <div className="page-header">
         <h1>🪟 Windows Events</h1>
         <p>Windows Event Log monitoring via Vector HTTP endpoint</p>
-        <button 
-          className="restart-btn" 
+        <button
+          className="restart-btn"
           onClick={handleRestartService}
           disabled={restarting}
         >
-          {restarting ? 'Restarting...' : 'Restart Vector Service'}
+          {restarting ? 'Restarting...' : 'Restart Windows Events Service'}
         </button>
       </div>
 
