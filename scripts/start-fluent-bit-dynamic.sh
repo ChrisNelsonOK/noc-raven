@@ -68,9 +68,16 @@ cat > "$GEN_CONF" <<EOF
     Reserve_Data  On
     Preserve_Key  On
 
+# Local file storage for telemetry data
+[OUTPUT]
+    Name          file
+    Match         syslog.*
+    Path          /data/syslog/production-syslog.log
+
+# Debug output to stdout (reduced)
 [OUTPUT]
     Name          stdout
-    Match         *
+    Match         syslog.*
 EOF
 
 exec fluent-bit -c "$GEN_CONF"

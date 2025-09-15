@@ -500,7 +500,7 @@ func main() {
 		Addr:              addr,
 		Handler:           newMux(),
 		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      10 * time.Second,
+		WriteTimeout:      60 * time.Second, // Increased for service restarts
 	}
 
 	if err := server.ListenAndServe(); err != nil {
@@ -752,9 +752,46 @@ func handleWindows(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(windows)
 }
 
+// getTelemetryCount counts lines in telemetry data files
+func getTelemetryCount(dataDir, pattern string) int {
+	count := 0
+
+	// Get all matching files in the directory
+	files, err := filepath.Glob(filepath.Join(dataDir, pattern))
+	if err != nil {
+		return 0
+	}
+
+	for _, file := range files {
+		// Skip empty files
+		if info, err := os.Stat(file); err != nil || info.Size() == 0 {
+			continue
+		}
+
+		// Count lines in file (each line typically represents one telemetry record)
+		if data, err := os.ReadFile(file); err == nil {
+			lines := strings.Split(string(data), "\n")
+			// Filter out empty lines
+			for _, line := range lines {
+				if strings.TrimSpace(line) != "" {
+					count++
+				}
+			}
+		}
+	}
+
+	return count
+}
+
 // Enhanced metrics handler
 func handleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	// Get telemetry data counts from actual data files
+	syslogCount := getTelemetryCount("/data/syslog", "production-syslog.log")
+	flowsCount := getTelemetryCount("/data/flows", "production-flows-*.log")
+	snmpCount := getTelemetryCount("/data/snmp", "*.log")
+	windowsCount := getTelemetryCount("/data/vector", "*.log")
 
 	// Get system metrics with error handling
 	var memTotal, memAvail, memUsed int64 = 1, 0, 0 // Default values to avoid division by zero
@@ -893,6 +930,11 @@ func handleMetrics(w http.ResponseWriter, r *http.Request) {
 		"memory_usage": fmt.Sprintf("%.1f%%", memUsagePct),
 		"disk_usage":   fmt.Sprintf("%.1f%%", diskUsagePct),
 		"uptime":       uptime,
+		// Telemetry data counts
+		"syslog_messages_received": syslogCount,
+		"netflow_records_received": flowsCount,
+		"snmp_traps_received":      snmpCount,
+		"windows_events_received":  windowsCount,
 		"memory": map[string]any{
 			"total":     memTotal,
 			"used":      memUsed,
