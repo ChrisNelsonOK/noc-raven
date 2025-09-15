@@ -12,9 +12,9 @@
       "protocol": "UDP",
       "bindAddress": "0.0.0.0",
       "ports": {
-        "netflow_v5": 2056,
-        "ipfix": 4740,
-        "sflow": 6344
+        "netflow_v5": 2055,
+        "ipfix": 4739,
+        "sflow": 6343
       }
     },
     "snmp": {
@@ -23,13 +23,22 @@
       "protocol": "UDP",
       "bindAddress": "0.0.0.0",
       "pollInterval": 300,
-      "trap_port": 1162
+      "trap_port": 162
     },
     "telegraf": {
       "enabled": true,
       "port": 8125,
       "protocol": "UDP",
       "bindAddress": "0.0.0.0"
+    },
+    "sflow": {
+      "enabled": true,
+      "port": 6343,
+      "protocol": "UDP",
+      "bindAddress": "0.0.0.0",
+      "sample_rate": 1000,
+      "agent_address": "0.0.0.0",
+      "max_packet_size": 1500
     },
     "windows": {
       "enabled": true,
@@ -60,13 +69,13 @@
       "targetHost": "",
       "targetPort": 162,
       "version": "v2c",
-      "community": "public",
+      "community": "n0crav3n",
       "username": "",
       "authProtocol": "SHA",
       "authPassword": ""
     },
     "sflow": {
-      "enabled": false,
+      "enabled": true,
       "targetHost": "",
       "targetPort": 6343,
       "sampleRate": 1000,

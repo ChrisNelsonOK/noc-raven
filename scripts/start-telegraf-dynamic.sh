@@ -32,7 +32,7 @@ cat > "$GEN_CONF" <<EOF
 
 # SNMP Trap receiver (dynamic)
 [[inputs.snmp_trap]]
-  service_address = "udp://:${TRAP_PORT}"
+  service_address = "udp://0.0.0.0:${TRAP_PORT}"
   path = ["/data/snmp"]
 
 # Output to file

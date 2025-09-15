@@ -151,6 +151,11 @@ RUN apk update && apk add --no-cache \
     fluent-bit \
     telegraf
 
+# Disable IPv6 to force IPv4-only binding for telemetry services
+RUN echo 'net.ipv6.conf.all.disable_ipv6 = 1' >> /etc/sysctl.conf && \
+    echo 'net.ipv6.conf.default.disable_ipv6 = 1' >> /etc/sysctl.conf && \
+    echo 'net.ipv6.conf.lo.disable_ipv6 = 1' >> /etc/sysctl.conf
+
 # =============================================================================
 # Install Vector from GitHub releases (as it's not in Alpine repos)
 # =============================================================================

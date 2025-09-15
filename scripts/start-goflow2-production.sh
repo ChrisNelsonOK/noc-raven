@@ -89,14 +89,18 @@ start_goflow2_production() {
 
     local listen=""
     if [[ "$nf_enabled" == "true" ]]; then
-        listen="sflow://:${p_sflow},netflow://:${p_v5},netflow://:${p_ipfix}"
+        listen="sflow://0.0.0.0:${p_sflow},netflow://0.0.0.0:${p_v5},netflow://0.0.0.0:${p_ipfix}"
     fi
 
-    log_info "Executing GoFlow2 with listen=[$listen]"
+    # Generate actual date for filename (goflow2 doesn't support strftime)
+    local date_str=$(date '+%Y-%m-%d')
+    local output_file="$DATA_DIR/flows/production-flows-${date_str}.log"
+
+    log_info "Executing GoFlow2 with listen=[$listen] output=[$output_file]"
     exec "$NOC_RAVEN_HOME/bin/goflow2" \
         -listen "$listen" \
         -transport file \
-        -transport.file "$DATA_DIR/flows/production-flows-%Y-%m-%d.log" \
+        -transport.file "$output_file" \
         -transport.file.sep "\\n" \
         -format json \
         -produce sample \
